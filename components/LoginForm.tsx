@@ -1,0 +1,76 @@
+'use client';
+
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { AnimatePresence, motion } from 'motion/react';
+import { useState } from 'react';
+import { Info } from 'lucide-react';
+import { LogoMark } from './art';
+import { demoMode, login } from '@/lib/db';
+
+export default function LoginForm() {
+  const router = useRouter();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [shake, setShake] = useState(0);
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setError(null);
+    try {
+      await login(email.trim(), password);
+      router.push('/panel');
+    } catch (err) {
+      setError((err as Error).message);
+      setShake((s) => s + 1);
+      setBusy(false);
+    }
+  }
+
+  return (
+    <motion.form
+      key={shake}
+      className="card auth-wrap"
+      onSubmit={submit}
+      initial={shake ? { x: 0 } : { opacity: 0, y: 16 }}
+      animate={shake ? { x: [0, -10, 9, -6, 4, 0] } : { opacity: 1, y: 0 }}
+      transition={{ duration: shake ? 0.4 : 0.35 }}
+    >
+      <LogoMark size={40} />
+      <h1 style={{ marginTop: 14 }}>Mekan girişi</h1>
+      <p className="muted" style={{ margin: '6px 0 22px' }}>Maçlarını ve rezervasyonlarını yönet.</p>
+
+      {demoMode && (
+        <div className="demo-banner">
+          <Info size={18} style={{ flex: 'none', marginTop: 1 }} />
+          <span>Demo modu: Önce “Mekanını ekle” ile bu tarayıcıda bir hesap oluştur, sonra buradan gir.</span>
+        </div>
+      )}
+
+      <div className="field">
+        <label htmlFor="l-email">E-posta</label>
+        <input id="l-email" className="input" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+      </div>
+      <div className="field">
+        <label htmlFor="l-pass">Şifre</label>
+        <input id="l-pass" className="input" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} />
+      </div>
+      <AnimatePresence>
+        {error && (
+          <motion.div className="form-error" initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0 }}>
+            {error}
+          </motion.div>
+        )}
+      </AnimatePresence>
+      <button className="btn btn-primary btn-lg btn-block" disabled={busy}>
+        {busy ? 'Giriş yapılıyor…' : 'Giriş yap'}
+      </button>
+      <p className="legal" style={{ fontSize: 14 }}>
+        Henüz üye değil misin? <Link href="/kayit" style={{ color: 'var(--accent)', fontWeight: 600 }}>Mekanını ekle</Link>
+      </p>
+    </motion.form>
+  );
+}

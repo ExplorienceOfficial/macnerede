@@ -1,0 +1,36 @@
+import type { Metadata, Viewport } from 'next';
+import { Figtree } from 'next/font/google';
+import './globals.css';
+import Header from '@/components/Header';
+import Footer from '@/components/Footer';
+import Providers from '@/components/Providers';
+
+const sans = Figtree({ subsets: ['latin', 'latin-ext'], weight: ['400', '500', '600', '700', '800', '900'], variable: '--font-sans' });
+
+export const dynamic = 'force-dynamic';
+
+export const metadata: Metadata = {
+  title: 'MaçNerede — Bu haftaki maçı hangi mekanda izlersin?',
+  description: 'Galatasaray, Fenerbahçe, Beşiktaş ve Trabzonspor maçlarını veren anlaşmalı kafe ve pub’lar. Ses açık mı, giriş ücreti, boş yer — tek tıkla yerini ayırt.',
+};
+
+export const viewport: Viewport = {
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#f4f5f1' },
+    { media: '(prefers-color-scheme: dark)', color: '#111513' },
+  ],
+};
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="tr" className={sans.variable}>
+      <body>
+        <Providers>
+          <Header />
+          <main>{children}</main>
+          <Footer />
+        </Providers>
+      </body>
+    </html>
+  );
+}

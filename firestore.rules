@@ -1,0 +1,118 @@
+rules_version = '2';
+
+// Koleksiyonlar:
+//   cafes/{uid}                  — mekan profili (doc id = mekan sahibinin Auth uid'i)
+//   cafes/{uid}/photos/{id}      — mekan fotoğrafları (herkes görür)
+//   broadcasts/{uid}_{matchId}   — mekanın vereceği maç
+//   reservations/{auto}          — taraftar rezervasyonu
+//   codes/{KOD}                  — tek seferlik aktivasyon kodları
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() { return request.auth != null; }
+    function isOwner(cafeId) { return signedIn() && request.auth.uid == cafeId; }
+    // Yönetim sayfası: sadece bu Google hesabı
+    function isAdmin() {
+      return signedIn()
+        && request.auth.token.email == 'kagankarki03@gmail.com'
+        && request.auth.token.email_verified == true;
+    }
+    function codePath(code) { return /databases/$(database)/documents/codes/$(code); }
+
+    match /cafes/{cafeId} {
+      allow read: if true;
+
+      function data() { return request.resource.data; }
+      function coverOk() {
+        return !('cover' in data()) || data().cover == null || (data().cover is string && data().cover.size() < 150000);
+      }
+      function basicsOk() {
+        return data().plan in ['standart', 'pro']
+          && data().membership.keys().hasOnly(['status', 'startedAt', 'renewsAt'])
+          && data().membership.status == 'trial'
+          && data().membership.startedAt is timestamp
+          && data().membership.renewsAt is timestamp
+          && data().membership.startedAt < request.time + duration.value(1, 'h')
+          && data().name is string && data().name.size() <= 80
+          && data().capacity is int && data().capacity > 0 && data().capacity <= 5000
+          && data().phone is string && data().phone.size() <= 15
+          && coverOk();
+      }
+      // Normal kayıt: en fazla 14 günlük deneme
+      function trialOk() {
+        return !('activationCode' in data())
+          && data().membership.renewsAt < request.time + duration.value(15, 'd');
+      }
+      // Kodlu kayıt: kod kullanılmamış olmalı ve aynı işlemde bu mekana yazılmalı; süre ve plan koddan gelir
+      function codeOk() {
+        let code = data().activationCode;
+        let c = get(codePath(code)).data;
+        return code is string
+          && c.used == false
+          && getAfter(codePath(code)).data.usedBy == request.auth.uid
+          && data().plan == c.plan
+          && data().membership.renewsAt < request.time + duration.value(c.days + 1, 'd');
+      }
+
+      allow create: if isOwner(cafeId) && basicsOk() && (trialOk() || ('activationCode' in data() && codeOk()));
+
+      // Mekan kendi bilgisini (kapak dahil) günceller; üyelik, plan ve koda dokunamaz.
+      // Üyeliği ödeme altyapısı / yönetici değiştirir.
+      allow update: if isAdmin() || (isOwner(cafeId)
+        && data().membership == resource.data.membership
+        && data().plan == resource.data.plan
+        && data().get('activationCode', null) == resource.data.get('activationCode', null)
+        && coverOk());
+
+      match /photos/{photoId} {
+        allow read: if true;
+        allow create: if isOwner(cafeId)
+          && request.resource.data.keys().hasOnly(['data', 'createdAt'])
+          && request.resource.data.data is string
+          && request.resource.data.data.size() < 900000;
+        allow delete: if isOwner(cafeId);
+      }
+    }
+
+    match /codes/{code} {
+      // Tek kod sorgulanabilir (kayıt ekranı kontrolü); liste sadece yöneticiye
+      allow get: if true;
+      allow list, create, delete: if isAdmin();
+      allow update: if isAdmin() || (signedIn()
+        && resource.data.used == false
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['used', 'usedBy', 'usedAt'])
+        && request.resource.data.used == true
+        && request.resource.data.usedBy == request.auth.uid
+        && request.resource.data.usedAt == request.time
+        && getAfter(/databases/$(database)/documents/cafes/$(request.auth.uid)).data.activationCode == code);
+    }
+
+    match /broadcasts/{id} {
+      allow read: if true;
+      allow create: if signedIn()
+        && request.resource.data.cafeId == request.auth.uid
+        && id == request.auth.uid + '_' + request.resource.data.matchId
+        && request.resource.data.reserved == 0;
+      allow delete: if signedIn() && resource.data.cafeId == request.auth.uid;
+      allow update: if
+        // mekan sahibi her şeyi düzenleyebilir
+        (signedIn() && resource.data.cafeId == request.auth.uid)
+        // taraftar rezervasyonu: sadece 'reserved' alanı, sadece artış, kapasiteyi aşmadan
+        || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reserved'])
+            && request.resource.data.reserved > resource.data.reserved
+            && request.resource.data.reserved - resource.data.reserved <= 20
+            && request.resource.data.reserved <= resource.data.seats);
+    }
+
+    match /reservations/{id} {
+      allow create: if request.resource.data.people is int
+        && request.resource.data.people >= 1 && request.resource.data.people <= 20
+        && request.resource.data.name is string && request.resource.data.name.size() <= 60
+        && request.resource.data.phone is string && request.resource.data.phone.size() <= 20
+        && request.resource.data.status == 'new'
+        && exists(/databases/$(database)/documents/broadcasts/$(request.resource.data.cafeId + '_' + request.resource.data.matchId));
+      // Telefon numaraları sadece ilgili mekana görünür
+      allow read, update: if signedIn() && resource.data.cafeId == request.auth.uid;
+    }
+  }
+}

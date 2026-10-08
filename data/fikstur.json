@@ -1,0 +1,655 @@
+{
+ "season": "2026-27",
+ "updated": "2026-10-08",
+ "note": "Saatler Türkiye saati (TSİ). time=null → saat henüz açıklanmadı. Süper Lig 17. hafta ve sonrası TFF açıkladıkça eklenecek.",
+ "sources": [
+  "https://www.milliyet.com.tr/skorer/super-ligde-7-16-hafta-programlari-belli-oldu-7660940",
+  "https://www.sabah.com.tr/spor/futbol/2026/09/15/super-ligde-7-16-hafta-programlari-aciklandi",
+  "https://www.ensonhaber.com/galatasaray-ve-fenerbahcenin-devler-ligi-fiksturu-aciklandi-h1561454",
+  "https://beinsports.com.tr/haber/besiktasin-uefa-avrupa-ligi-fiksturu-belli-oldu",
+  "https://beinsports.com.tr/haber/iste-trabzonsporun-uefa-konferans-ligi-fiksturu"
+ ],
+ "matches": [
+  {
+   "id": "261009-gs-kasimpasa",
+   "comp": "superlig",
+   "round": 7,
+   "date": "2026-10-09",
+   "time": "20:00",
+   "home": "gs",
+   "away": "kasimpasa",
+   "channel": "beIN SPORTS",
+   "stadium": "RAMS Park"
+  },
+  {
+   "id": "261010-samsunspor-ts",
+   "comp": "superlig",
+   "round": 7,
+   "date": "2026-10-10",
+   "time": "16:00",
+   "home": "samsunspor",
+   "away": "ts",
+   "channel": "beIN SPORTS"
+  },
+  {
+   "id": "261010-rizespor-fb",
+   "comp": "superlig",
+   "round": 7,
+   "date": "2026-10-10",
+   "time": "19:00",
+   "home": "rizespor",
+   "away": "fb",
+   "channel": "beIN SPORTS"
+  },
+  {
+   "id": "261011-bjk-kocaelispor",
+   "comp": "superlig",
+   "round": 7,
+   "date": "2026-10-11",
+   "time": "19:00",
+   "home": "bjk",
+   "away": "kocaelispor",
+   "channel": "beIN SPORTS",
+   "stadium": "Tüpraş Stadyumu"
+  },
+  {
+   "id": "261013-gs-barcelona",
+   "comp": "ucl",
+   "round": 2,
+   "date": "2026-10-13",
+   "time": "22:00",
+   "home": "gs",
+   "away": "barcelona",
+   "stadium": "RAMS Park"
+  },
+  {
+   "id": "261014-astonvilla-fb",
+   "comp": "ucl",
+   "round": 2,
+   "date": "2026-10-14",
+   "time": "22:00",
+   "home": "astonvilla",
+   "away": "fb"
+  },
+  {
+   "id": "261015-kups-ts",
+   "comp": "uecl",
+   "round": 2,
+   "date": "2026-10-15",
+   "time": "19:45",
+   "home": "kups",
+   "away": "ts"
+  },
+  {
+   "id": "261015-hoffenheim-bjk",
+   "comp": "uel",
+   "round": 2,
+   "date": "2026-10-15",
+   "time": "22:00",
+   "home": "hoffenheim",
+   "away": "bjk"
+  },
+  {
+   "id": "261017-genclerbirligi-gs",
+   "comp": "superlig",
+   "round": 8,
+   "date": "2026-10-17",
+   "time": "16:00",
+   "home": "genclerbirligi",
+   "away": "gs",
+   "channel": "beIN SPORTS"
+  },
+  {
+   "id": "261017-fb-alanyaspor",
+   "comp": "superlig",
+   "round": 8,
+   "date": "2026-10-17",
+   "time": "19:00",
+   "home": "fb",
+   "away": "alanyaspor",
+   "channel": "beIN SPORTS",
+   "stadium": "Chobani Stadyumu"
+  },
+  {
+   "id": "261019-ts-bjk",
+   "comp": "superlig",
+   "round": 8,
+   "date": "2026-10-19",
+   "time": "20:00",
+   "home": "ts",
+   "away": "bjk",
+   "channel": "beIN SPORTS",
+   "stadium": "Papara Park",
+   "derby": true
+  },
+  {
+   "id": "261020-fb-slavia",
+   "comp": "ucl",
+   "round": 3,
+   "date": "2026-10-20",
+   "time": "19:45",
+   "home": "fb",
+   "away": "slavia",
+   "stadium": "Chobani Stadyumu"
+  },
+  {
+   "id": "261021-lille-gs",
+   "comp": "ucl",
+   "round": 3,
+   "date": "2026-10-21",
+   "time": "19:45",
+   "home": "lille",
+   "away": "gs"
+  },
+  {
+   "id": "261022-ts-hearts",
+   "comp": "uecl",
+   "round": 3,
+   "date": "2026-10-22",
+   "time": "19:45",
+   "home": "ts",
+   "away": "hearts",
+   "stadium": "Papara Park"
+  },
+  {
+   "id": "261022-bjk-crystalpalace",
+   "comp": "uel",
+   "round": 3,
+   "date": "2026-10-22",
+   "time": "22:00",
+   "home": "bjk",
+   "away": "crystalpalace",
+   "stadium": "Tüpraş Stadyumu"
+  },
+  {
+   "id": "261026-rizespor-ts",
+   "comp": "superlig",
+   "round": 9,
+   "date": "2026-10-26",
+   "time": "19:00",
+   "home": "rizespor",
+   "away": "ts",
+   "channel": "beIN SPORTS"
+  },
+  {
+   "id": "261026-bjk-basaksehir",
+   "comp": "superlig",
+   "round": 9,
+   "date": "2026-10-26",
+   "time": "19:00",
+   "home": "bjk",
+   "away": "basaksehir",
+   "channel": "beIN SPORTS",
+   "stadium": "Tüpraş Stadyumu"
+  },
+  {
+   "id": "261026-gs-fb",
+   "comp": "superlig",
+   "round": 9,
+   "date": "2026-10-26",
+   "time": "21:30",
+   "home": "gs",
+   "away": "fb",
+   "channel": "beIN SPORTS",
+   "stadium": "RAMS Park",
+   "derby": true
+  },
+  {
+   "id": "261030-konyaspor-gs",
+   "comp": "superlig",
+   "round": 10,
+   "date": "2026-10-30",
+   "time": "20:00",
+   "home": "konyaspor",
+   "away": "gs",
+   "channel": "beIN SPORTS"
+  },
+  {
+   "id": "261031-fb-goztepe",
+   "comp": "superlig",
+   "round": 10,
+   "date": "2026-10-31",
+   "time": "19:00",
+   "home": "fb",
+   "away": "goztepe",
+   "channel": "beIN SPORTS",
+   "stadium": "Chobani Stadyumu"
+  },
+  {
+   "id": "261101-ts-gaziantep",
+   "comp": "superlig",
+   "round": 10,
+   "date": "2026-11-01",
+   "time": "16:00",
+   "home": "ts",
+   "away": "gaziantep",
+   "channel": "beIN SPORTS",
+   "stadium": "Papara Park"
+  },
+  {
+   "id": "261101-kasimpasa-bjk",
+   "comp": "superlig",
+   "round": 10,
+   "date": "2026-11-01",
+   "time": "19:00",
+   "home": "kasimpasa",
+   "away": "bjk",
+   "channel": "beIN SPORTS"
+  },
+  {
+   "id": "261103-gs-stuttgart",
+   "comp": "ucl",
+   "round": 4,
+   "date": "2026-11-03",
+   "time": "20:45",
+   "home": "gs",
+   "away": "stuttgart",
+   "stadium": "RAMS Park"
+  },
+  {
+   "id": "261104-fb-liverpool",
+   "comp": "ucl",
+   "round": 4,
+   "date": "2026-11-04",
+   "time": null,
+   "home": "fb",
+   "away": "liverpool",
+   "stadium": "Chobani Stadyumu"
+  },
+  {
+   "id": "261105-ts-freiburg",
+   "comp": "uecl",
+   "round": 4,
+   "date": "2026-11-05",
+   "time": "20:45",
+   "home": "ts",
+   "away": "freiburg",
+   "stadium": "Papara Park"
+  },
+  {
+   "id": "261105-celtic-bjk",
+   "comp": "uel",
+   "round": 4,
+   "date": "2026-11-05",
+   "time": "23:00",
+   "home": "celtic",
+   "away": "bjk"
+  },
+  {
+   "id": "261107-gs-amedspor",
+   "comp": "superlig",
+   "round": 11,
+   "date": "2026-11-07",
+   "time": "19:00",
+   "home": "gs",
+   "away": "amedspor",
+   "channel": "beIN SPORTS",
+   "stadium": "RAMS Park"
+  },
+  {
+   "id": "261108-corum-fb",
+   "comp": "superlig",
+   "round": 11,
+   "date": "2026-11-08",
+   "time": "16:00",
+   "home": "corum",
+   "away": "fb",
+   "channel": "beIN SPORTS"
+  },
+  {
+   "id": "261108-alanyaspor-ts",
+   "comp": "superlig",
+   "round": 11,
+   "date": "2026-11-08",
+   "time": "18:30",
+   "home": "alanyaspor",
+   "away": "ts",
+   "channel": "beIN SPORTS"
+  },
+  {
+   "id": "261108-bjk-genclerbirligi",
+   "comp": "superlig",
+   "round": 11,
+   "date": "2026-11-08",
+   "time": "21:00",
+   "home": "bjk",
+   "away": "genclerbirligi",
+   "channel": "beIN SPORTS",
+   "stadium": "Tüpraş Stadyumu"
+  },
+  {
+   "id": "261121-gs-samsunspor",
+   "comp": "superlig",
+   "round": 12,
+   "date": "2026-11-21",
+   "time": "16:00",
+   "home": "gs",
+   "away": "samsunspor",
+   "channel": "beIN SPORTS",
+   "stadium": "RAMS Park"
+  },
+  {
+   "id": "261121-kocaelispor-fb",
+   "comp": "superlig",
+   "round": 12,
+   "date": "2026-11-21",
+   "time": "19:00",
+   "home": "kocaelispor",
+   "away": "fb",
+   "channel": "beIN SPORTS"
+  },
+  {
+   "id": "261122-konyaspor-bjk",
+   "comp": "superlig",
+   "round": 12,
+   "date": "2026-11-22",
+   "time": "16:00",
+   "home": "konyaspor",
+   "away": "bjk",
+   "channel": "beIN SPORTS"
+  },
+  {
+   "id": "261122-ts-eyupspor",
+   "comp": "superlig",
+   "round": 12,
+   "date": "2026-11-22",
+   "time": "19:00",
+   "home": "ts",
+   "away": "eyupspor",
+   "channel": "beIN SPORTS",
+   "stadium": "Papara Park"
+  },
+  {
+   "id": "261124-gs-astonvilla",
+   "comp": "ucl",
+   "round": 5,
+   "date": "2026-11-24",
+   "time": "20:45",
+   "home": "gs",
+   "away": "astonvilla",
+   "stadium": "RAMS Park"
+  },
+  {
+   "id": "261125-shakhtar-fb",
+   "comp": "ucl",
+   "round": 5,
+   "date": "2026-11-25",
+   "time": null,
+   "home": "shakhtar",
+   "away": "fb"
+  },
+  {
+   "id": "261126-bjk-hapoel",
+   "comp": "uel",
+   "round": 5,
+   "date": "2026-11-26",
+   "time": "20:45",
+   "home": "bjk",
+   "away": "hapoel",
+   "stadium": "Tüpraş Stadyumu"
+  },
+  {
+   "id": "261126-cska-ts",
+   "comp": "uecl",
+   "round": 5,
+   "date": "2026-11-26",
+   "time": "23:00",
+   "home": "cska",
+   "away": "ts"
+  },
+  {
+   "id": "261129-fb-erzurumspor",
+   "comp": "superlig",
+   "round": 13,
+   "date": "2026-11-29",
+   "time": "19:00",
+   "home": "fb",
+   "away": "erzurumspor",
+   "channel": "beIN SPORTS",
+   "stadium": "Chobani Stadyumu"
+  },
+  {
+   "id": "261130-goztepe-ts",
+   "comp": "superlig",
+   "round": 13,
+   "date": "2026-11-30",
+   "time": "19:00",
+   "home": "goztepe",
+   "away": "ts",
+   "channel": "beIN SPORTS"
+  },
+  {
+   "id": "261130-bjk-gs",
+   "comp": "superlig",
+   "round": 13,
+   "date": "2026-11-30",
+   "time": "21:00",
+   "home": "bjk",
+   "away": "gs",
+   "channel": "beIN SPORTS",
+   "stadium": "Tüpraş Stadyumu",
+   "derby": true
+  },
+  {
+   "id": "261204-gs-rizespor",
+   "comp": "superlig",
+   "round": 14,
+   "date": "2026-12-04",
+   "time": "20:00",
+   "home": "gs",
+   "away": "rizespor",
+   "channel": "beIN SPORTS",
+   "stadium": "RAMS Park"
+  },
+  {
+   "id": "261205-basaksehir-fb",
+   "comp": "superlig",
+   "round": 14,
+   "date": "2026-12-05",
+   "time": "19:00",
+   "home": "basaksehir",
+   "away": "fb",
+   "channel": "beIN SPORTS"
+  },
+  {
+   "id": "261206-bjk-samsunspor",
+   "comp": "superlig",
+   "round": 14,
+   "date": "2026-12-06",
+   "time": "16:00",
+   "home": "bjk",
+   "away": "samsunspor",
+   "channel": "beIN SPORTS",
+   "stadium": "Tüpraş Stadyumu"
+  },
+  {
+   "id": "261206-ts-corum",
+   "comp": "superlig",
+   "round": 14,
+   "date": "2026-12-06",
+   "time": "19:00",
+   "home": "ts",
+   "away": "corum",
+   "channel": "beIN SPORTS",
+   "stadium": "Papara Park"
+  },
+  {
+   "id": "261208-aek-gs",
+   "comp": "ucl",
+   "round": 6,
+   "date": "2026-12-08",
+   "time": "23:00",
+   "home": "aek",
+   "away": "gs"
+  },
+  {
+   "id": "261209-lask-fb",
+   "comp": "ucl",
+   "round": 6,
+   "date": "2026-12-09",
+   "time": null,
+   "home": "lask",
+   "away": "fb"
+  },
+  {
+   "id": "261210-ts-jablonec",
+   "comp": "uecl",
+   "round": 6,
+   "date": "2026-12-10",
+   "time": "20:45",
+   "home": "ts",
+   "away": "jablonec",
+   "stadium": "Papara Park"
+  },
+  {
+   "id": "261210-leverkusen-bjk",
+   "comp": "uel",
+   "round": 6,
+   "date": "2026-12-10",
+   "time": "23:00",
+   "home": "leverkusen",
+   "away": "bjk"
+  },
+  {
+   "id": "261212-eyupspor-gs",
+   "comp": "superlig",
+   "round": 15,
+   "date": "2026-12-12",
+   "time": "19:00",
+   "home": "eyupspor",
+   "away": "gs",
+   "channel": "beIN SPORTS"
+  },
+  {
+   "id": "261213-fb-ts",
+   "comp": "superlig",
+   "round": 15,
+   "date": "2026-12-13",
+   "time": "19:00",
+   "home": "fb",
+   "away": "ts",
+   "channel": "beIN SPORTS",
+   "stadium": "Chobani Stadyumu",
+   "derby": true
+  },
+  {
+   "id": "261214-gaziantep-bjk",
+   "comp": "superlig",
+   "round": 15,
+   "date": "2026-12-14",
+   "time": "20:00",
+   "home": "gaziantep",
+   "away": "bjk",
+   "channel": "beIN SPORTS"
+  },
+  {
+   "id": "261217-crvena-ts",
+   "comp": "uecl",
+   "round": 7,
+   "date": "2026-12-17",
+   "time": "23:00",
+   "home": "crvena",
+   "away": "ts"
+  },
+  {
+   "id": "261218-kasimpasa-fb",
+   "comp": "superlig",
+   "round": 16,
+   "date": "2026-12-18",
+   "time": "20:00",
+   "home": "kasimpasa",
+   "away": "fb",
+   "channel": "beIN SPORTS"
+  },
+  {
+   "id": "261219-gs-alanyaspor",
+   "comp": "superlig",
+   "round": 16,
+   "date": "2026-12-19",
+   "time": "19:00",
+   "home": "gs",
+   "away": "alanyaspor",
+   "channel": "beIN SPORTS",
+   "stadium": "RAMS Park"
+  },
+  {
+   "id": "261220-bjk-rizespor",
+   "comp": "superlig",
+   "round": 16,
+   "date": "2026-12-20",
+   "time": "19:00",
+   "home": "bjk",
+   "away": "rizespor",
+   "channel": "beIN SPORTS",
+   "stadium": "Tüpraş Stadyumu"
+  },
+  {
+   "id": "261221-ts-kocaelispor",
+   "comp": "superlig",
+   "round": 16,
+   "date": "2026-12-21",
+   "time": "20:00",
+   "home": "ts",
+   "away": "kocaelispor",
+   "channel": "beIN SPORTS",
+   "stadium": "Papara Park"
+  },
+  {
+   "id": "270119-gs-feyenoord",
+   "comp": "ucl",
+   "round": 7,
+   "date": "2027-01-19",
+   "time": "20:45",
+   "home": "gs",
+   "away": "feyenoord",
+   "stadium": "RAMS Park"
+  },
+  {
+   "id": "270120-fb-villarreal",
+   "comp": "ucl",
+   "round": 7,
+   "date": "2027-01-20",
+   "time": null,
+   "home": "fb",
+   "away": "villarreal",
+   "stadium": "Chobani Stadyumu"
+  },
+  {
+   "id": "270121-bjk-usg",
+   "comp": "uel",
+   "round": 7,
+   "date": "2027-01-21",
+   "time": "20:45",
+   "home": "bjk",
+   "away": "usg",
+   "stadium": "Tüpraş Stadyumu"
+  },
+  {
+   "id": "270127-psg-gs",
+   "comp": "ucl",
+   "round": 8,
+   "date": "2027-01-27",
+   "time": "23:00",
+   "home": "psg",
+   "away": "gs"
+  },
+  {
+   "id": "270127-atletico-fb",
+   "comp": "ucl",
+   "round": 8,
+   "date": "2027-01-27",
+   "time": "23:00",
+   "home": "atletico",
+   "away": "fb"
+  },
+  {
+   "id": "270128-omonia-bjk",
+   "comp": "uel",
+   "round": 8,
+   "date": "2027-01-28",
+   "time": "23:00",
+   "home": "omonia",
+   "away": "bjk"
+  }
+ ]
+}
