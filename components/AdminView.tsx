@@ -24,6 +24,7 @@ import {
   logout,
   prepareGoogle,
   watchAdmin,
+  type AdminSession,
   type MembershipPreset,
 } from '@/lib/db';
 import { cities, cityById, districtById, districtName } from '@/lib/places';
@@ -54,16 +55,17 @@ const daysLeft = (c: Cafe) => Math.max(0, Math.ceil((new Date(c.membership.renew
 const fmtDate = (iso: string) => new Intl.DateTimeFormat('tr-TR', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(iso));
 
 export default function AdminView({ matches, weekText }: { matches: MatchInfo[]; weekText: string }) {
-  const [email, setEmail] = useState<string | null | undefined>(undefined);
+  const [session, setSession] = useState<AdminSession | undefined>(undefined);
   const [tab, setTab] = useState<Tab>('hafta');
   const [cafes, setCafes] = useState<Cafe[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const email = session?.admin ? session.email : null;
 
-  useEffect(() => watchAdmin(setEmail), []);
+  useEffect(() => watchAdmin(setSession), []);
 
   useEffect(() => {
-    if (email === null) prepareGoogle();
-  }, [email]);
+    if (session !== undefined && !email) prepareGoogle();
+  }, [session, email]);
 
   const loadCafes = useCallback(() => {
     adminListCafes()
@@ -75,7 +77,7 @@ export default function AdminView({ matches, weekText }: { matches: MatchInfo[];
     if (email) loadCafes();
   }, [email, loadCafes]);
 
-  if (email === undefined) return <div className="skeleton" style={{ height: 200, margin: '40px 0' }} />;
+  if (session === undefined) return <div className="skeleton" style={{ height: 200, margin: '40px 0' }} />;
 
   if (!email) {
     return (
@@ -83,6 +85,7 @@ export default function AdminView({ matches, weekText }: { matches: MatchInfo[];
         <LogoMark size={40} />
         <h1 style={{ marginTop: 14 }}>Yönetim</h1>
         <p className="muted" style={{ margin: '6px 0 22px' }}>Mekanları, üyelikleri ve kodları yönetmek için yönetici Google hesabınla gir.</p>
+        {session && <div className="form-error">{session.email} hesabının yönetim yetkisi yok. Yönetici hesabıyla gir.</div>}
         {error && <div className="form-error">{error}</div>}
         <button
           className="btn btn-primary btn-lg btn-block"
@@ -92,7 +95,7 @@ export default function AdminView({ matches, weekText }: { matches: MatchInfo[];
             })
           }
         >
-          <ShieldCheck size={18} /> Google ile giriş yap
+          <ShieldCheck size={18} /> {session ? 'Başka Google hesabıyla gir' : 'Google ile giriş yap'}
         </button>
       </motion.div>
     );

@@ -6,6 +6,7 @@ import {
   doc,
   getDoc,
   getDocs,
+  limit,
   query,
   where,
   setDoc,
@@ -725,15 +726,35 @@ const DEMO_ADMIN = 'demo-yonetici@macnerede';
 
 export async function adminSignIn(): Promise<void> {
   if (demoMode) return;
-  await signInWithPopup(firebase().auth, new GoogleAuthProvider());
+  const provider = new GoogleAuthProvider();
+  // Başka bir Google hesabıyla girilmişse Google aynı hesabı sessizce seçmesin
+  provider.setCustomParameters({ prompt: 'select_account' });
+  await signInWithPopup(firebase().auth, provider);
 }
 
-export function watchAdmin(cb: (email: string | null) => void): () => void {
+/** null: Google ile girilmemiş · admin false: girilmiş ama yönetici değil */
+export type AdminSession = { email: string; admin: boolean } | null;
+
+/**
+ * Yönetici kim, tek yerde belli: firestore.rules → isAdmin(). Burada e-posta tekrar yazılmıyor;
+ * sadece yöneticinin okuyabildiği kodlar okunmaya çalışılıyor, izin yoksa panel hiç açılmıyor.
+ */
+export function watchAdmin(cb: (s: AdminSession) => void): () => void {
   if (demoMode) {
-    cb(DEMO_ADMIN);
+    cb({ email: DEMO_ADMIN, admin: true });
     return () => {};
   }
-  return onAuthStateChanged(firebase().auth, (u) => cb(u && u.providerData.some((p) => p.providerId === 'google.com') ? u.email : null));
+  let seq = 0;
+  return onAuthStateChanged(firebase().auth, async (u) => {
+    const run = ++seq;
+    const email = u && u.providerData.some((p) => p.providerId === 'google.com') ? u.email : null;
+    if (!email) return cb(null);
+    const admin = await getDocs(query(collection(firebase().db, 'codes'), limit(1))).then(
+      () => true,
+      () => false,
+    );
+    if (run === seq) cb({ email, admin });
+  });
 }
 
 export async function adminListCodes(): Promise<ActivationCode[]> {
