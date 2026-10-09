@@ -1,8 +1,8 @@
 'use client';
 
 import { AnimatePresence, motion } from 'motion/react';
-import { useState } from 'react';
-import { customerGoogle, customerLogin, customerRegister, demoMode, resetPassword } from '@/lib/db';
+import { useEffect, useState } from 'react';
+import { customerGoogle, customerLogin, customerRegister, demoMode, prepareGoogle, resetPassword } from '@/lib/db';
 
 /** Taraftar girişi / kaydı — rezervasyon penceresinde ve Hesabım sayfasında kullanılır */
 export default function AuthPanel({ compact, intro }: { compact?: boolean; intro?: string }) {
@@ -14,6 +14,8 @@ export default function AuthPanel({ compact, intro }: { compact?: boolean; intro
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+
+  useEffect(() => prepareGoogle(), []);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();

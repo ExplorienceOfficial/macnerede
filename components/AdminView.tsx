@@ -10,6 +10,7 @@ import { CompBadge, KindIcon } from './bits';
 import { LogoMark } from './art';
 import {
   CODE_DAYS,
+  POPUP_BLOCKED,
   adminCreateCafe,
   adminListCafes,
   adminListCodes,
@@ -21,6 +22,7 @@ import {
   demoMode,
   listBroadcasts,
   logout,
+  prepareGoogle,
   watchAdmin,
   type MembershipPreset,
 } from '@/lib/db';
@@ -43,6 +45,7 @@ function friendly(e: unknown) {
   const code = (e as { code?: string })?.code ?? '';
   if (code === 'auth/operation-not-allowed') return 'Google ile giriş kapalı. Firebase Console → Authentication → Sign-in method → Google’ı aç.';
   if (code === 'auth/unauthorized-domain') return 'Bu alan adı Firebase’de yetkili değil (Authentication → Settings → Authorized domains).';
+  if (code === 'auth/popup-blocked') return POPUP_BLOCKED;
   if (code === 'permission-denied') return 'Bu Google hesabının yönetim yetkisi yok.';
   return (e as Error)?.message ?? 'Bir şeyler ters gitti.';
 }
@@ -57,6 +60,10 @@ export default function AdminView({ matches, weekText }: { matches: MatchInfo[];
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => watchAdmin(setEmail), []);
+
+  useEffect(() => {
+    if (email === null) prepareGoogle();
+  }, [email]);
 
   const loadCafes = useCallback(() => {
     adminListCafes()

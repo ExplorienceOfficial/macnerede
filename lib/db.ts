@@ -108,6 +108,8 @@ function membershipFor(days: number) {
   return { status: 'trial' as const, startedAt: now.toISOString(), renewsAt: renews.toISOString() };
 }
 
+export const POPUP_BLOCKED = 'Tarayıcı Google penceresini engelledi. Adres çubuğundan bu siteye açılır pencere izni verip tekrar dene.';
+
 function authError(e: unknown): Error {
   const code = (e as { code?: string })?.code ?? '';
   const msg: Record<string, string> = {
@@ -120,6 +122,7 @@ function authError(e: unknown): Error {
     'auth/too-many-requests': 'Çok fazla deneme yapıldı, birkaç dakika sonra tekrar dene.',
     'auth/operation-not-allowed': 'E-posta ile kayıt henüz açılmamış (Firebase → Authentication → E-posta/Şifre).',
     'auth/network-request-failed': 'Bağlantı kurulamadı, internetini kontrol et.',
+    'auth/popup-blocked': POPUP_BLOCKED,
     'permission-denied': 'Kayıt veritabanına yazılamadı. Firestore kuralları yüklenmemiş olabilir.',
   };
   if (code && !msg[code]) console.error('[firebase]', e);
@@ -593,6 +596,17 @@ export async function customerLogin(email: string, password: string): Promise<vo
   } catch (e) {
     throw authError(e);
   }
+}
+
+/**
+ * Google penceresini önceden hazırlar. Firebase ilk tıklamada pencereyi açmadan önce gizli bir iframe yükler;
+ * bu uzarsa tarayıcı tıklamayla bağı kaybedip pencereyi engeller (auth/popup-blocked). Firebase bunu sadece
+ * Safari ve mobilde kendisi önceden yüklüyor; Google düğmesi olan sayfalar açılırken biz de yüklüyoruz.
+ */
+export function prepareGoogle() {
+  if (demoMode) return;
+  const auth = firebase().auth as unknown as { _popupRedirectResolver?: { _initialize(a: unknown): Promise<unknown> } | null };
+  auth._popupRedirectResolver?._initialize(auth).catch(() => {});
 }
 
 export async function customerGoogle(): Promise<void> {
