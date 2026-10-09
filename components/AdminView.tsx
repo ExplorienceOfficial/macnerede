@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { AnimatePresence, motion } from 'motion/react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { CalendarDays, Check, CreditCard, Copy, ExternalLink, FileUp, KeyRound, LogOut, MessageCircle, RefreshCw, Search, ShieldCheck, Store, UserPlus } from 'lucide-react';
+import { BookOpen, CalendarDays, Check, CreditCard, Copy, Eye, EyeOff, ExternalLink, FileUp, Inbox, KeyRound, LogOut, MessageCircle, RefreshCw, Search, ShieldCheck, Store, Trash2, UploadCloud, UserPlus } from 'lucide-react';
 import Crest from './Crest';
 import LocationPicker, { type LatLng } from './LocationPicker';
 import { CompBadge, KindIcon } from './bits';
@@ -12,11 +12,15 @@ import {
   CODE_DAYS,
   POPUP_BLOCKED,
   adminCreateCafe,
+  adminDeleteLead,
+  adminImportVenues,
   adminListCafes,
   adminListCodes,
+  adminListLeads,
   adminListPayments,
-  adminListReservations,
+  adminListVenues,
   adminSetMembership,
+  adminSetVenueHidden,
   adminSignIn,
   adminUploadCodes,
   demoMode,
@@ -29,14 +33,17 @@ import {
 } from '@/lib/db';
 import { cities, cityById, districtById, districtName } from '@/lib/places';
 import { BIG4, team, type BigTeam } from '@/lib/teams';
-import { CAFE_KINDS, plans, type Payment, type ActivationCode, type Broadcast, type Cafe, type CafeKind, type PlanId, type Reservation } from '@/lib/types';
+import { CAFE_KINDS, plans, type Payment, type ActivationCode, type Broadcast, type Cafe, type CafeKind, type Lead, type PlanId, type Venue } from '@/lib/types';
 import type { MatchInfo } from '@/lib/fixtures';
-import { tl } from '@/lib/hooks';
+import { formatPhone, tl, waLink } from '@/lib/hooks';
+import { bundledVenues } from '@/lib/venues';
 
-type Tab = 'hafta' | 'mekanlar' | 'yeni' | 'odemeler' | 'kodlar';
+type Tab = 'hafta' | 'mekanlar' | 'basvurular' | 'rehber' | 'yeni' | 'odemeler' | 'kodlar';
 const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
   { id: 'hafta', label: 'Bu hafta', icon: <CalendarDays size={15} /> },
   { id: 'mekanlar', label: 'Mekanlar', icon: <Store size={15} /> },
+  { id: 'basvurular', label: 'Başvurular', icon: <Inbox size={15} /> },
+  { id: 'rehber', label: 'Rehber', icon: <BookOpen size={15} /> },
   { id: 'yeni', label: 'Yeni mekan', icon: <UserPlus size={15} /> },
   { id: 'odemeler', label: 'Ödemeler', icon: <CreditCard size={15} /> },
   { id: 'kodlar', label: 'Kodlar', icon: <KeyRound size={15} /> },
@@ -135,6 +142,8 @@ export default function AdminView({ matches, weekText }: { matches: MatchInfo[];
         <motion.div key={tab} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.2 }}>
           {tab === 'hafta' && <WeekTab matches={matches} weekText={weekText} cafes={cafes} />}
           {tab === 'mekanlar' && <CafesTab cafes={cafes} onChange={(c) => setCafes((all) => (all ?? []).map((x) => (x.id === c.id ? c : x)))} onReload={loadCafes} />}
+          {tab === 'basvurular' && <LeadsTab />}
+          {tab === 'rehber' && <VenuesTab />}
           {tab === 'yeni' && <NewCafeTab onCreated={(c) => setCafes((all) => [c, ...(all ?? [])])} />}
           {tab === 'odemeler' && <PaymentsTab />}
           {tab === 'kodlar' && <CodesTab cafes={cafes} />}
@@ -147,18 +156,14 @@ export default function AdminView({ matches, weekText }: { matches: MatchInfo[];
 // ---------------- Bu hafta ----------------
 function WeekTab({ matches, weekText, cafes }: { matches: MatchInfo[]; weekText: string; cafes: Cafe[] | null }) {
   const [bcs, setBcs] = useState<Broadcast[] | null>(null);
-  const [res, setRes] = useState<Reservation[]>([]);
   const [open, setOpen] = useState<string | null>(null);
   const ids = useMemo(() => matches.map((m) => m.id), [matches]);
 
   useEffect(() => {
     listBroadcasts(ids).then(setBcs).catch(() => setBcs([]));
-    adminListReservations(ids).then(setRes).catch(() => setRes([]));
   }, [ids]);
 
   const byId = useMemo(() => new Map((cafes ?? []).map((c) => [c.id, c])), [cafes]);
-  const live = res.filter((r) => r.status !== 'cancelled');
-  const sum = (l: Reservation[]) => l.reduce((s, r) => s + r.people, 0);
 
   return (
     <>
@@ -172,12 +177,8 @@ function WeekTab({ matches, weekText, cafes }: { matches: MatchInfo[]; weekText:
           <span>Yayın veren mekan</span>
         </div>
         <div className="card stat-tile">
-          <b>{live.length}</b>
-          <span>Rezervasyon</span>
-        </div>
-        <div className="card stat-tile">
-          <b>{sum(live.filter((r) => r.status === 'arrived'))}</b>
-          <span>Gelen müşteri</span>
+          <b>{bundledVenues.length}</b>
+          <span>Rehber mekanı</span>
         </div>
       </div>
 
@@ -187,7 +188,6 @@ function WeekTab({ matches, weekText, cafes }: { matches: MatchInfo[]; weekText:
         {matches.length === 0 && <p className="faint">Bu hafta maç yok.</p>}
         {matches.map((m) => {
           const mb = (bcs ?? []).filter((b) => b.matchId === m.id);
-          const mr = live.filter((r) => r.matchId === m.id);
           const isOpen = open === m.id;
           return (
             <div key={m.id} className={`bc-row${isOpen ? ' on' : ''}`} style={m.finished ? { opacity: 0.6 } : undefined}>
@@ -204,7 +204,7 @@ function WeekTab({ matches, weekText, cafes }: { matches: MatchInfo[]; weekText:
                 </div>
                 <CompBadge comp={m.comp} />
                 <span className="admin-nums">
-                  <b>{bcs ? mb.length : '…'}</b> mekan · <b>{mr.length}</b> rez. · <b>{sum(mr)}</b> kişi
+                  <b>{bcs ? mb.length : '…'}</b> anlaşmalı mekan
                 </span>
               </button>
               <AnimatePresence initial={false}>
@@ -216,14 +216,12 @@ function WeekTab({ matches, weekText, cafes }: { matches: MatchInfo[]; weekText:
                       ) : (
                         mb.map((b) => {
                           const c = byId.get(b.cafeId);
-                          const people = sum(mr.filter((r) => r.cafeId === b.cafeId));
                           return (
                             <div key={b.cafeId} className="res-item">
-                              <span className="res-people">{people}</span>
                               <div className="who">
                                 <b>{c?.name ?? 'Bilinmeyen mekan'}</b>
                                 <span>
-                                  {c ? `${cityById(c.city)?.name} / ${districtName(c.city, c.district)}` : ''} · {b.reserved}/{b.seats} yer dolu {b.sound ? '· ses açık' : ''}
+                                  {c ? `${cityById(c.city)?.name} / ${districtName(c.city, c.district)}` : ''} {b.sound ? '· ses açık' : ''} {b.entryFee ? `· giriş ${tl(b.entryFee)}` : ''}
                                 </span>
                               </div>
                               <Link className="btn btn-ghost btn-sm" href={`/kafe/${b.cafeId}`}>
@@ -648,7 +646,7 @@ function NewCafeTab({ onCreated }: { onCreated: (c: Cafe) => void }) {
             ['bigScreen', 'Dev ekran'],
             ['alcohol', 'Alkol var'],
             ['hookah', 'Nargile'],
-            ['garden', 'Bahçe'],
+            ['garden', 'Açık alan'],
           ] as const
         ).map(([k, l]) => (
           <button key={k} type="button" className="chip" aria-pressed={f[k]} onClick={() => set(k, !f[k])}>
@@ -960,5 +958,119 @@ function PaymentsTab() {
         )}
       </section>
     </>
+  );
+}
+
+// ---------------- Başvurular ----------------
+function LeadsTab() {
+  const [leads, setLeads] = useState<Lead[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    adminListLeads()
+      .then(setLeads)
+      .catch((e) => setError(friendly(e)));
+  }, []);
+
+  async function done(l: Lead) {
+    if (!confirm(`${l.name} başvurusunu listeden kaldırayım mı?`)) return;
+    await adminDeleteLead(l.id);
+    setLeads((all) => (all ?? []).filter((x) => x.id !== l.id));
+  }
+
+  const venueName = (id: string | null) => (id ? bundledVenues.find((v) => v.id === id)?.name : null);
+
+  return (
+    <section className="card panel-card">
+      <h2>Başvurular</h2>
+      <p>“Mekanını ekle” kısa formundan gelenler. WhatsApp’tan yaz, profili “Yeni mekan” sekmesinden aç, sonra başvuruyu kaldır.</p>
+      {error && <div className="form-error">{error}</div>}
+      {leads === null && !error && <div className="skeleton" style={{ height: 120 }} />}
+      {leads?.length === 0 && <p className="faint">Henüz başvuru yok.</p>}
+      {leads?.map((l) => (
+        <div key={l.id} className="res-item">
+          <div className="who">
+            <b>{l.name}</b>
+            <span>
+              {cityById(l.city)?.name} / {districtName(l.city, l.district)} · {formatPhone(l.phone)} · {fmtDate(l.createdAt)}
+              {venueName(l.venueId) && ` · rehberdeki “${venueName(l.venueId)}” için`}
+            </span>
+          </div>
+          <a className="btn btn-wa btn-sm" href={waLink(l.phone, `Merhaba, MaçNerede’ye ${l.name} için yaptığınız başvuru hakkında yazıyorum.`)} target="_blank" rel="noopener noreferrer">
+            <MessageCircle size={15} /> Yaz
+          </a>
+          <button className="icon-btn" onClick={() => done(l)} aria-label={`${l.name} başvurusunu kaldır`}>
+            <Trash2 size={16} />
+          </button>
+        </div>
+      ))}
+    </section>
+  );
+}
+
+// ---------------- Rehber ----------------
+function VenuesTab() {
+  const [list, setList] = useState<Venue[] | null | undefined>(undefined);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(() => {
+    adminListVenues()
+      .then(setList)
+      .catch((e) => setError(friendly(e)));
+  }, []);
+  useEffect(load, [load]);
+
+  async function upload() {
+    setBusy(true);
+    setError(null);
+    try {
+      const n = await adminImportVenues();
+      setMsg(`${n} mekan Firebase’e yazıldı. Gizlediklerin gizli kaldı.`);
+      load();
+    } catch (e) {
+      setError(friendly(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function toggle(v: Venue) {
+    await adminSetVenueHidden(v.id, !v.hidden);
+    setList((all) => (all ?? []).map((x) => (x.id === v.id ? { ...x, hidden: !v.hidden } : x)));
+  }
+
+  return (
+    <section className="card panel-card">
+      <h2>Rehber mekanları</h2>
+      <p>
+        Maç verdiği taraftar yorumlarıyla doğrulanmış, anlaşmalı olmayan mekanlar. Liste <code>data/rehber.json</code>’dan gelir; Firebase’e
+        yükleyince buradan gizleyip açabilirsin. Anlaşmalı bir mekan aynı telefonla kayıt olursa sitede rehber kaydı kendiliğinden gizlenir.
+      </p>
+      {error && <div className="form-error">{error}</div>}
+      {msg && <div className="trial-note" style={{ marginBottom: 12 }}>{msg}</div>}
+      <button className="btn btn-primary btn-sm" onClick={upload} disabled={busy} style={{ marginBottom: 12 }}>
+        <UploadCloud size={15} /> {busy ? 'Yükleniyor…' : list === null ? `${bundledVenues.length} mekanı Firebase’e yükle` : 'Paketteki listeyle güncelle'}
+      </button>
+      {list === null && <p className="faint" style={{ fontSize: 14 }}>Firebase’de henüz rehber yok; site şimdilik paketteki listeyi gösteriyor.</p>}
+      {list === undefined && !error && <div className="skeleton" style={{ height: 120 }} />}
+      {list !== undefined &&
+        (list ?? bundledVenues).map((v) => (
+          <div key={v.id} className="res-item" style={v.hidden ? { opacity: 0.5 } : undefined}>
+            <div className="who">
+              <b>{v.name}</b>
+              <span>
+                {cityById(v.city)?.name} / {districtName(v.city, v.district)} · {v.phone ? formatPhone(v.phone) : 'telefon yok'} · {v.evidence}
+              </span>
+            </div>
+            {list && (
+              <button className="btn btn-ghost btn-sm" onClick={() => toggle(v)}>
+                {v.hidden ? <Eye size={15} /> : <EyeOff size={15} />} {v.hidden ? 'Göster' : 'Gizle'}
+              </button>
+            )}
+          </div>
+        ))}
+    </section>
   );
 }

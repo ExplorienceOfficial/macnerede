@@ -7,10 +7,9 @@ export default function Footer() {
       <div className="container footer-row">
         <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
           <LogoMark size={24} />
-          <span>Sadece anlaşmalı mekanlar listelenir. Bilgiler mekanların kendi beyanıdır.</span>
+          <span>Anlaşmalı mekanların bilgileri kendi beyanıdır. Diğer mekanlar taraftar yorumlarından derlendi; gitmeden sorup teyit et.</span>
         </div>
         <div className="footer-links">
-          <Link href="/hesap">Hesabım</Link>
           <Link href="/kayit">Mekanını ekle</Link>
           <Link href="/giris">Mekan girişi</Link>
           <a href="mailto:merhaba@macnerede.com">İletişim</a>

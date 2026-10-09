@@ -1,11 +1,13 @@
 rules_version = '2';
 
 // Koleksiyonlar:
-//   cafes/{uid}                  — mekan profili (doc id = mekan sahibinin Auth uid'i)
+//   cafes/{uid}                  — anlaşmalı mekan profili (doc id = mekan sahibinin Auth uid'i)
 //   cafes/{uid}/photos/{id}      — mekan fotoğrafları (herkes görür)
-//   broadcasts/{uid}_{matchId}   — mekanın vereceği maç
-//   reservations/{auto}          — taraftar rezervasyonu
+//   broadcasts/{uid}_{matchId}   — anlaşmalı mekanın vereceği maç
+//   venues/{id}                  — rehber mekanları (maç verdiği taraftar yorumlarıyla doğrulanmış, anlaşmasız)
+//   leads/{auto}                 — "Mekanını ekle" kısa başvuruları
 //   codes/{KOD}                  — tek seferlik aktivasyon kodları
+// Yer ayırma WhatsApp/telefonla mekan ile taraftar arasında yapılır; site rezervasyon tutmaz.
 service cloud.firestore {
   match /databases/{database}/documents {
 
@@ -90,89 +92,35 @@ service cloud.firestore {
 
     match /broadcasts/{id} {
       allow read: if true;
-      allow create: if signedIn()
+      // Mekan sadece kendi yayınını yazar; belge adı uid_maçId olmalı
+      allow create, update: if signedIn()
         && request.resource.data.cafeId == request.auth.uid
-        && id == request.auth.uid + '_' + request.resource.data.matchId
-        && request.resource.data.reserved == 0;
+        && id == request.auth.uid + '_' + request.resource.data.matchId;
       allow delete: if signedIn() && resource.data.cafeId == request.auth.uid;
+    }
 
-      function resPath(rid) { return /databases/$(database)/documents/reservations/$(rid); }
-      function nextData() { return request.resource.data; }
-      // Yeni rezervasyon: aynı işlemde oluşan rezervasyonun kişi sayısı kadar artar, kapasiteyi aşamaz
-      function bookingOk() {
-        let rid = nextData().lastRes;
-        let r = getAfter(resPath(rid)).data;
-        return !exists(resPath(rid))
-          && r.userId == request.auth.uid
-          && r.cafeId == resource.data.cafeId && r.matchId == resource.data.matchId
-          && nextData().reserved == resource.data.reserved + r.people
-          && nextData().reserved <= resource.data.seats;
-      }
-      // İptal: aynı işlemde müşterinin kendi rezervasyonu iptal edilir, kişi sayısı kadar azalır
-      function cancelOk() {
-        let rid = nextData().lastRes;
-        let before = get(resPath(rid)).data;
-        return before.userId == request.auth.uid
-          && before.cafeId == resource.data.cafeId && before.matchId == resource.data.matchId
-          && before.status == 'new' && getAfter(resPath(rid)).data.status == 'cancelled'
-          && nextData().reserved == resource.data.reserved - before.people;
-      }
+    match /venues/{id} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
 
-      allow update: if
-        // mekan sahibi her şeyi düzenleyebilir
-        (signedIn() && resource.data.cafeId == request.auth.uid)
-        // taraftar: sayaç sadece gerçek bir rezervasyon ya da iptalle birlikte değişebilir
-        || (signedIn()
-            && nextData().diff(resource.data).affectedKeys().hasOnly(['reserved', 'lastRes'])
-            && (bookingOk() || cancelOk()));
+    // Kısa başvuru: giriş gerekmez; alanlar sınırlı, okuma ve silme sadece yönetici
+    match /leads/{id} {
+      function d() { return request.resource.data; }
+      allow create: if d().keys().hasOnly(['name', 'city', 'district', 'phone', 'venueId', 'createdAt'])
+        && d().name is string && d().name.size() >= 2 && d().name.size() <= 80
+        && d().city in ['istanbul', 'ankara', 'izmir']
+        && d().district is string && d().district.size() <= 40
+        && d().phone is string && d().phone.size() >= 10 && d().phone.size() <= 15
+        && (d().venueId == null || (d().venueId is string && d().venueId.size() <= 80))
+        && d().createdAt == request.time;
+      allow read, delete: if isAdmin();
     }
 
     // Üyelik ödemeleri: sadece sunucu (iyzico dönüşü, Admin SDK) yazar; mekan kendi ödemelerini, yönetici hepsini görür
     match /payments/{id} {
       allow read: if isAdmin() || (signedIn() && resource.data.cafeId == request.auth.uid);
       allow write: if false;
-    }
-
-    // Taraftar profili: ad + telefon (rezervasyon için zorunlu)
-    match /users/{uid} {
-      allow read: if isOwner(uid) || isAdmin();
-      allow create, update: if isOwner(uid)
-        && request.resource.data.name is string && request.resource.data.name.size() >= 2 && request.resource.data.name.size() <= 60
-        && request.resource.data.phone is string && request.resource.data.phone.size() >= 10 && request.resource.data.phone.size() <= 15;
-    }
-
-    match /reservations/{id} {
-      function d() { return request.resource.data; }
-      function bcPath(cafeId, matchId) { return /databases/$(database)/documents/broadcasts/$(cafeId + '_' + matchId); }
-
-      // Giriş yapmış taraftar, maç başlamadan, en fazla 12 kişi; sayaçla aynı işlemde
-      allow create: if signedIn()
-        && d().userId == request.auth.uid
-        && d().keys().hasOnly(['cafeId', 'matchId', 'userId', 'name', 'phone', 'people', 'code', 'createdAt', 'status', 'kickoff'])
-        && d().people is int && d().people >= 1 && d().people <= 12
-        && d().name is string && d().name.size() >= 2 && d().name.size() <= 60
-        && d().phone is string && d().phone.size() >= 10 && d().phone.size() <= 20
-        && d().status == 'new'
-        && d().kickoff is timestamp && request.time < d().kickoff
-        && get(bcPath(d().cafeId, d().matchId)).data.get('kickoff', d().kickoff) == d().kickoff
-        && getAfter(bcPath(d().cafeId, d().matchId)).data.lastRes == id;
-
-      // Telefon numaraları sadece ilgili mekana, rezervasyonu yapan taraftara ve yöneticiye görünür
-      allow read: if isAdmin() || (signedIn() && (resource.data.cafeId == request.auth.uid || resource.data.get('userId', '') == request.auth.uid));
-
-      allow update: if signedIn() && (
-        // mekan: geldi / gelmedi / geri al
-        (resource.data.cafeId == request.auth.uid
-          && d().diff(resource.data).affectedKeys().hasOnly(['status'])
-          && d().status in ['new', 'arrived', 'noshow'])
-        // taraftar: iptal, sadece maça 1 saat kalana kadar; boşalan yer aynı işlemde sayaca döner
-        || (resource.data.get('userId', '') == request.auth.uid
-          && resource.data.status == 'new'
-          && d().status == 'cancelled'
-          && d().diff(resource.data).affectedKeys().hasOnly(['status', 'cancelledAt'])
-          && request.time < resource.data.kickoff - duration.value(1, 'h')
-          && getAfter(bcPath(resource.data.cafeId, resource.data.matchId)).data.lastRes == id)
-      );
     }
   }
 }

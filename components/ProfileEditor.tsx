@@ -107,7 +107,7 @@ export default function ProfileEditor({ cafe, onCafe }: { cafe: Cafe; onCafe: (c
                   ['bigScreen', 'Dev ekran'],
                   ['alcohol', 'Alkol var'],
                   ['hookah', 'Nargile'],
-                  ['garden', 'Bahçe'],
+                  ['garden', 'Açık alan'],
                 ] as const
               ).map(([k, l]) => (
                 <button key={k} type="button" className="chip" aria-pressed={p.features[k]} onClick={() => set('features', { ...p.features, [k]: !p.features[k] })}>

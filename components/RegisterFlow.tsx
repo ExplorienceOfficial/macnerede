@@ -72,10 +72,12 @@ const initial: Form = {
   plan: 'standart',
 };
 
-export default function RegisterFlow({ weekMatchCount }: { weekMatchCount: number }) {
+export type RegisterPrefill = Partial<Pick<Form, 'name' | 'city' | 'district' | 'address' | 'phone' | 'loc' | 'locTouched'>>;
+
+export default function RegisterFlow({ weekMatchCount, prefill }: { weekMatchCount: number; prefill?: RegisterPrefill }) {
   const [step, setStep] = useState(0);
   const [dir, setDir] = useState(1);
-  const [f, setF] = useState<Form>(initial);
+  const [f, setF] = useState<Form>({ ...initial, ...prefill });
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [showPass, setShowPass] = useState(false);
@@ -195,7 +197,7 @@ export default function RegisterFlow({ weekMatchCount }: { weekMatchCount: numbe
           </a>
         </div>
         <h1>Mekanını taraftara göster.</h1>
-        <p>Maç günü masalarını doldurmak için kayıt ol, vereceğin maçları işaretle, rezervasyonları panelinden takip et.</p>
+        <p>Maç günü masalarını doldurmak için kayıt ol, vereceğin maçları işaretle; yer sormak isteyen taraftar WhatsApp’tan sana yazsın.</p>
         <div className="stat-row">
           <div className="stat">
             <b>{weekMatchCount}</b>
@@ -297,7 +299,7 @@ export default function RegisterFlow({ weekMatchCount }: { weekMatchCount: numbe
                     </select>
                   </div>
                   <div className="field">
-                    <label htmlFor="district">İlçe</label>
+                    <label htmlFor="district">Semt</label>
                     <select id="district" className="input" value={f.district} onChange={(e) => setF((p) => ({ ...p, district: e.target.value, locTouched: false }))}>
                       {cityInfo.districts.map((d) => (
                         <option key={d.id} value={d.id}>
@@ -314,7 +316,7 @@ export default function RegisterFlow({ weekMatchCount }: { weekMatchCount: numbe
                 <div className="field">
                   <label htmlFor="phone">WhatsApp numarası</label>
                   <input id="phone" className="input" type="tel" inputMode="tel" value={f.phone} onChange={(e) => set('phone', e.target.value)} placeholder="05xx xxx xx xx" />
-                  <span className="hint">Taraftarlar rezervasyondan sonra bu numaraya yazabilir.</span>
+                  <span className="hint">Taraftarlar yer sormak için bu numaraya WhatsApp’tan yazar.</span>
                 </div>
               </>
             )}
@@ -353,7 +355,7 @@ export default function RegisterFlow({ weekMatchCount }: { weekMatchCount: numbe
                   <Toggle icon={<Tv size={18} />} label="Dev ekran / projeksiyon" on={f.bigScreen} set={(v) => set('bigScreen', v)} />
                   <Toggle icon={<PintIcon size={18} />} label="Alkol servisi" on={f.alcohol} set={(v) => set('alcohol', v)} />
                   <Toggle icon={<HookahIcon size={18} />} label="Nargile" on={f.hookah} set={(v) => set('hookah', v)} />
-                  <Toggle icon={<Trees size={18} />} label="Bahçe / açık alan" on={f.garden} set={(v) => set('garden', v)} />
+                  <Toggle icon={<Trees size={18} />} label="Açık alan (bahçe / teras)" on={f.garden} set={(v) => set('garden', v)} />
                 </div>
                 <div className="field">
                   <span className="label">Taraftar mekanı mısın?</span>
@@ -394,7 +396,7 @@ export default function RegisterFlow({ weekMatchCount }: { weekMatchCount: numbe
             {step === 4 && (
               <>
                 <h2 className="step-title">Üyeliğini seç</h2>
-                <p className="step-desc">Sadece anlaşmalı mekanlar sitede listelenir. Aktivasyon kodun varsa önce onu gir.</p>
+                <p className="step-desc">Anlaşmalı mekanlar listede en üstte ve maçlarıyla birlikte görünür. Aktivasyon kodun varsa önce onu gir.</p>
 
                 <motion.div className={`code-box${codeState.status === 'ok' ? ' ok' : ''}`} layout animate={codeState.status === 'bad' ? { x: [0, -8, 7, -4, 0] } : { x: 0 }} transition={{ duration: 0.35 }}>
                   <AnimatePresence mode="wait" initial={false}>
@@ -483,8 +485,8 @@ export default function RegisterFlow({ weekMatchCount }: { weekMatchCount: numbe
                 <div className="trial-note">
                   <Gift size={18} style={{ flex: 'none', marginTop: 2 }} />
                   <span>
-                    İlk <b>{TRIAL_DAYS} gün ücretsiz</b>. Şimdi kart bilgisi istemiyoruz; deneme bitmeden ödeme bağlantısı e-postana gelir. Ödemezsen
-                    mekanın sadece listeden kalkar.
+                    İlk <b>{TRIAL_DAYS} gün ücretsiz</b>. Kart bilgisi istemiyoruz; deneme bitince devam etmek istersen panelinden üyeliğini başlatırsın.
+                    Başlatmazsan mekanın sadece anlaşmalı listeden çıkar.
                   </span>
                 </div>
                     </motion.div>
@@ -549,7 +551,7 @@ function Preview({ f, cover }: { f: Form; cover: string | null }) {
         f.bigScreen && { k: 'tv', icon: <Tv size={14} />, t: 'Dev ekran' },
         f.alcohol && { k: 'alc', icon: <PintIcon size={14} />, t: 'Alkol var' },
         f.hookah && { k: 'hk', icon: <HookahIcon size={14} />, t: 'Nargile' },
-        f.garden && { k: 'gd', icon: <Trees size={14} />, t: 'Bahçe' },
+        f.garden && { k: 'gd', icon: <Trees size={14} />, t: 'Açık alan' },
       ].filter(Boolean) as { k: string; icon: React.ReactNode; t: string }[],
     [f.bigScreen, f.alcohol, f.hookah, f.garden],
   );
@@ -649,7 +651,7 @@ function Welcome({ cafe }: { cafe: Cafe }) {
       <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 1.2 }}>
         <h1 style={{ fontSize: 30, fontWeight: 800, marginTop: 22 }}>Aramıza hoş geldin!</h1>
         <p className="muted" style={{ marginTop: 8, fontSize: 16 }}>
-          {cafe.name} artık taraftarlara görünüyor. Şimdi bu hafta hangi maçları vereceğini işaretle, rezervasyonlar paneline düşsün.
+          {cafe.name} artık taraftarlara görünüyor. Şimdi bu hafta hangi maçları vereceğini işaretle; yer sormak isteyenler WhatsApp’tan sana yazsın.
         </p>
         <button className="btn btn-primary btn-lg" style={{ marginTop: 22 }} onClick={() => router.push('/panel')}>
           Bu haftanın maçlarını işaretle <ArrowRight size={17} />

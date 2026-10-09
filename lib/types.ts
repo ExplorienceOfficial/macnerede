@@ -33,6 +33,43 @@ export interface Cafe {
   coverPhotoId?: string | null;
 }
 
+/**
+ * Rehber mekanı: henüz anlaşmalı olmayan ama maç verdiği taraftar yorumlarıyla doğrulanmış mekan.
+ * Hangi maçı vereceğini mekan girmez; taraftar gitmeden WhatsApp'tan ya da telefonla sorar.
+ */
+export interface Venue {
+  id: string;
+  name: string;
+  kind: CafeKind;
+  city: string;
+  district: string;
+  address: string;
+  lat: number;
+  lng: number;
+  phone: string; // 90XXXXXXXXXX, bilinmiyorsa boş
+  features: Cafe['features'];
+  rating: number | null;
+  reviews: number | null;
+  /** Neden "maç veriyor" diyoruz: ör. "5 yorum, en yenisi 1 ay önce" */
+  evidence: string;
+  instagram?: string;
+  website?: string;
+  /** Yönetici listeden kaldırdıysa */
+  hidden?: boolean;
+}
+
+/** "Mekanını ekle" kısa formundan gelen başvuru: profili yönetici hazırlar */
+export interface Lead {
+  id: string;
+  name: string;
+  city: string;
+  district: string;
+  phone: string;
+  /** Rehberdeki bir mekan "bu benim" dediyse onun id'si */
+  venueId: string | null;
+  createdAt: string;
+}
+
 export interface CafePhoto {
   id: string;
   data: string; // data:image/jpeg;base64,...
@@ -54,68 +91,33 @@ export interface Broadcast {
   sound: boolean;
   entryFee: number | null;
   minSpend: number | null;
-  seats: number;
-  reserved: number;
+  /** Mekan "önceden yer ayırtın" diyorsa */
   reservationRequired: boolean;
   note?: string;
-  /** Maç başlama saati (ISO) — rezervasyonlar buna göre kapanır, iptal süresi hesaplanır */
+  /** Maç başlama saati (ISO) */
   kickoff?: string;
-  /** Son yer ayırma/iptal işleminin rezervasyon id'si (güvenlik kuralları sayacı doğrulasın diye) */
-  lastRes?: string;
 }
-
-export type ReservationStatus = 'new' | 'arrived' | 'noshow' | 'cancelled';
-
-export interface Reservation {
-  id: string;
-  cafeId: string;
-  matchId: string;
-  /** Rezervasyonu yapan müşteri hesabı */
-  userId?: string;
-  name: string;
-  phone: string;
-  people: number;
-  code: string;
-  createdAt: string;
-  /** Maç başlama saati (ISO) — iptal süresi buna göre hesaplanır */
-  kickoff?: string;
-  status: ReservationStatus;
-  cancelledAt?: string;
-}
-
-/** Müşteri (taraftar) profili */
-export interface Customer {
-  uid: string;
-  email: string;
-  name: string;
-  phone: string;
-}
-
-/** Rezervasyon kuralları — firestore.rules ile aynı tutulmalı */
-export const POLICY = {
-  maxPeople: 12,
-  /** Maça bu kadar dakika kala iptal kapanır */
-  cancelCutoffMin: 60,
-  /** Bu kadar "gelmedi" alan müşteri bir süre rezervasyon yapamaz */
-  noShowLimit: 2,
-  noShowWindowDays: 60,
-  banDays: 30,
-} as const;
 
 export const plans: Record<PlanId, { name: string; price: number; tagline: string; perks: string[] }> = {
   standart: {
     name: 'Standart',
     price: 1000,
-    tagline: 'Haritada ol, rezervasyon al',
-    perks: ['Haritada ve maç listelerinde görün', 'Sınırsız maç yayını gir', 'Sitede rezervasyon al', 'WhatsApp’tan müşteri yönlendirme'],
+    tagline: 'Haritada ol, taraftar sana yazsın',
+    perks: ['Haritada ve maç listelerinde “Anlaşmalı” olarak görün', 'Sınırsız maç yayını gir', 'Ses, giriş ücreti ve notlarını kendin yaz', 'Taraftarlar WhatsApp’tan doğrudan yer sorsun'],
   },
   pro: {
     name: 'Pro',
     price: 2500,
     tagline: 'Her maçta listenin en üstünde',
-    perks: ['Standart’taki her şey', 'Tüm maçlarda “Öne çıkan” rozeti ve üst sıra', 'Haftalık rezervasyon raporu', 'Instagram için “Maç bizde” hikaye görseli'],
+    perks: ['Standart’taki her şey', 'Tüm maçlarda “Öne çıkan” rozeti ve üst sıra', 'Instagram için “Maç bizde” hikaye görseli'],
   },
 };
+
+/** Kişi başı harcamadan bütçe seviyesi: 1 = ₺, 2 = ₺₺, 3 = ₺₺₺ */
+export function priceLevel(min: number, max: number): 1 | 2 | 3 {
+  const avg = (min + max) / 2;
+  return avg <= 350 ? 1 : avg <= 700 ? 2 : 3;
+}
 
 /** Ödeme dönemleri: aylık ya da yıllık (yıllıkta 2 ay hediye — 10 ay fiyatına) */
 export const PERIODS = {

@@ -23,6 +23,8 @@ export interface MapCafe {
   pro: boolean;
   fanOf: BigTeam | null;
   cover?: string | null;
+  /** Rehber mekanı (anlaşmalı değil): daha sade işaretçi */
+  guide?: boolean;
 }
 
 /** Haritada gösterilecek stadyum: fotoğraflı işaretçi */
@@ -122,7 +124,7 @@ function StadiumPin({ s }: { s: MapStadium }) {
 function CafePin({ c, active, delay = 0 }: { c: MapCafe; active: boolean; delay?: number }) {
   return (
     <motion.div
-      className={`marker${c.pro ? ' pro' : ''}${active ? ' active' : ''}${c.cover ? ' has-photo' : ''}`}
+      className={`marker${c.pro ? ' pro' : ''}${c.guide ? ' guide' : ''}${active ? ' active' : ''}${c.cover ? ' has-photo' : ''}`}
       initial={{ y: -28, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
       transition={{ type: 'spring', stiffness: 420, damping: 14, delay }}

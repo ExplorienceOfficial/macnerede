@@ -11,10 +11,10 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
   return m ? { title: `${team(m.home).name} – ${team(m.away).name} nerede izlenir? — MaçNerede` } : {};
 }
 
-export default async function MatchPage({ params, searchParams }: { params: Params; searchParams: Promise<{ sehir?: string }> }) {
+export default async function MatchPage({ params, searchParams }: { params: Params; searchParams: Promise<{ sehir?: string; semt?: string }> }) {
   const { id } = await params;
-  const { sehir } = await searchParams;
+  const { sehir, semt } = await searchParams;
   const m = findMatch(id);
   if (!m) notFound();
-  return <MatchView match={decorate(m)} initialCity={sehir} />;
+  return <MatchView match={decorate(m)} initialCity={sehir} initialDistrict={semt} />;
 }

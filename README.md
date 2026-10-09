@@ -1,7 +1,10 @@
 # MaçNerede
 
-Galatasaray, Fenerbahçe, Beşiktaş ve Trabzonspor maçlarını veren **anlaşmalı** kafe/pub'ları gösteren site.
-Taraftar maçı seçer, şehrini/ilçesini seçer, yerini ayırtır. Mekanlar aylık üyelikle (ya da aktivasyon koduyla) listelenir.
+Galatasaray, Fenerbahçe, Beşiktaş ve Trabzonspor maçlarını veren kafe/pub'ları gösteren site (İstanbul, Ankara, İzmir).
+Taraftar maçı ve semtini seçer, mekanı bulur, yerini WhatsApp'tan hazır mesajla ayırtır. İki tür mekan var:
+
+- **Anlaşmalı mekanlar**: kayıt olur, hangi maçı verdiğini, sesi, giriş ücretini kendisi girer; listede üstte görünür.
+- **Rehber mekanları**: anlaşmasız, ama maç verdiği Google yorumlarıyla doğrulanmış mekanlar (`data/rehber.json`).
 
 ## Çalıştır
 
@@ -12,19 +15,18 @@ npm run dev
 
 Firebase ayarları depodaki `.env` dosyasında (web ayarları gizli değildir; güvenliği `firestore.rules` sağlar), yani
 klonlayıp çalıştırınca site doğrudan `macnerede-58592` projesine bağlanır. Firebase değişkenleri boş bırakılırsa site
-**demo modunda** çalışır: örnek mekanlar, kayıt ve rezervasyonlar tarayıcıda saklanır.
+**demo modunda** çalışır: örnek anlaşmalı mekanlar, kayıtlar ve başvurular tarayıcıda saklanır.
 
 ## Sayfalar
 
 | Yol | Ne |
 |---|---|
-| `/` | Bu haftanın maçları, takım/şehir seçimi, sıradaki maç + geri sayım |
-| `/mac/[id]` | Maçı veren mekanlar: filtreler, harita (stadyum fotoğraflı işaretçi), rezervasyon + bilet animasyonu |
-| `/kafe/[id]` | Mekan detayı, telefon/ara, fotoğraf galerisi, bu hafta verdiği maçlar |
-| `/hesap` | **Taraftar hesabı**: giriş/kayıt (e-posta ya da Google), rezervasyonlarım, iptal, profil |
-| `/kayit` | Mekan kaydı (5 adım) — fotoğraflar, aktivasyon kodu, üyelik |
-| `/giris` · `/panel` | Mekan girişi (şifremi unuttum dahil) ve paneli: maç aç/kapa, canlı rezervasyonlar, gelen müşteri istatistikleri, fotoğraflar, mekan bilgileri |
-| `/yonetim` | **Admin paneli** (Google ile giriş): bu haftanın maçları ve rezervasyon özeti, tüm mekanlar + üyelik işlemleri (1 ay aktif, 1 yıl ücretsiz, deneme, askıya al, plan), mekan adına hesap açma, ödemeler, aktivasyon kodları |
+| `/` | Bu haftanın maçları, takım/şehir seçimi, popüler semtler, sıradaki maç + geri sayım |
+| `/mac/[id]` | Maçı veren mekanlar: semt (`?semt=`), filtreler (ses, dev ekran, açık alan, girişsiz, alkol, nargile, ₺/₺₺/₺₺₺), harita, WhatsApp ile yer ayırtma |
+| `/kafe/[id]` | Anlaşmalı mekan detayı, telefon/ara, fotoğraf galerisi, bu hafta verdiği maçlar |
+| `/kayit` | **Kısa başvuru** (ad, şehir/semt, WhatsApp — şimdilik ücretsiz); isteyen 5 adımlı formla profilini kendisi kurar. `?mekan=<rehber id>` rehberdeki mekanın bilgilerini doldurur |
+| `/giris` · `/panel` | Mekan girişi (şifremi unuttum dahil) ve paneli: maç aç/kapa, fotoğraflar, mekan bilgileri, üyelik |
+| `/yonetim` | **Admin paneli** (Google ile giriş): bu haftanın maçları, tüm mekanlar + üyelik işlemleri, başvurular, rehber (Firebase'e yükle, gizle/göster), mekan adına hesap açma, ödemeler, aktivasyon kodları |
 
 ## Fikstür
 
@@ -36,7 +38,7 @@ haftanın maçları bittiyse bir sonraki haftayı açar. Süper Lig 7–16. haft
 
 Proje: `macnerede-58592`.
 
-1. **Authentication** → Sign-in method → **Email/Password** (mekanlar, taraftarlar) ve **Google** (taraftarlar, yönetim sayfası) açık olmalı
+1. **Authentication** → Sign-in method → **Email/Password** (mekanlar) ve **Google** (yönetim sayfası) açık olmalı
 2. **Firestore** kuralları: `firebase deploy --only firestore:rules --account <proje sahibinin e-postası>`
 3. Canlıya alırken alan adını Authentication → Settings → Authorized domains'e ekle
 
@@ -44,26 +46,35 @@ Proje: `macnerede-58592`.
 |---|---|
 | `cafes/{uid}` | Mekan profili + küçük kapak fotoğrafı. `membership.status`: `trial`/`active`/`past_due`/`canceled` |
 | `cafes/{uid}/photos/{id}` | Mekan fotoğrafları (tarayıcıda küçültülüp data URL olarak saklanır; ücretsiz planda Storage gerekmez) |
-| `broadcasts/{uid}_{matchId}` | Mekanın vereceği maç: ses, giriş, min. harcama, yer sayısı, ayrılan yer |
-| `reservations/{auto}` | Taraftar rezervasyonu: `userId`, `kickoff`, `status` (`new`/`arrived`/`noshow`/`cancelled`). Telefonu sadece ilgili mekan, taraftarın kendisi ve yönetici görür |
-| `users/{uid}` | Taraftar profili: ad, telefon |
+| `broadcasts/{uid}_{matchId}` | Anlaşmalı mekanın vereceği maç: ses, giriş, min. harcama, "önceden yer ayırt" |
+| `venues/{id}` | Rehber mekanları (herkes okur, yönetici yazar). Boşsa site `data/rehber.json`'u gösterir; `hidden: true` listeden kaldırır |
+| `leads/{auto}` | Kısa başvurular: ad, şehir, semt, WhatsApp, varsa rehber id'si. Giriş gerekmez; sadece yönetici okur/siler |
 | `payments/{id}` | Üyelik ödemeleri — sadece sunucu yazar |
 | `codes/{KOD}` | Tek seferlik aktivasyon kodu: `days`, `plan`, `used`, `usedBy`, `usedAt` |
 
 Güvenlik kuralları (`firestore.rules`) şunları garanti eder: normal kayıt en fazla 14 günlük deneme açabilir; kodlu kayıt
 ancak kodu **aynı işlemde** kullanarak açılabilir (kod iki kez kullanılamaz); mekan kendi üyeliğine dokunamaz;
-kodları sadece yönetici (`kagankarki03@gmail.com`, Google ile) listeleyip oluşturabilir.
+kodları sadece yönetici (`kagankarki03@gmail.com`, Google ile) listeleyip oluşturabilir; rehberi sadece yönetici yazar;
+başvurular sadece belirli alanlarla ve sunucu saatiyle oluşturulabilir.
 
-## Rezervasyon kuralları
+Kuralların testi (Firebase emülatörü, Java gerekir): `npm run test:rules` — 16 senaryo.
 
-Taraftar rezervasyon için **hesap açmak zorunda** (ad + telefon). Kurallar `lib/types.ts` → `POLICY` ve `firestore.rules`'ta:
+## Yer ayırtma (WhatsApp)
 
-- Maça **1 saat kalana kadar** ücretsiz iptal (Hesabım); son 1 saatte iptal yok — sunucu saatine göre kuralla zorunlu.
-- Rezervasyon başına en fazla **12 kişi**; bir maç için tek aktif rezervasyon; maç başlayınca rezervasyon kapanır.
-- Mekan "Gelmedi" işaretleyebilir; **60 günde 2 gelmeme → 30 gün** rezervasyon yasağı.
-- Yer sayacı sadece gerçek bir rezervasyon/iptalle aynı işlemde değişebilir (sayaç şişirilemez, kapasite aşılamaz).
+Site rezervasyon tutmaz. "Yerini ayırt" → kişi sayısı seçilir → mekanın WhatsApp'ına hazır mesaj açılır
+("neredemac.com üzerinden ulaşıyorum… 4 kişilik yeriniz var mı?"). WhatsApp düğmesi sadece cep numaralarında (905…) çıkar;
+sabit hatlarda "Ara" gösterilir.
 
-Kuralların testi (Firebase emülatörü, Java gerekir): `npm run test:rules` — 15 senaryo.
+## Rehber mekanları
+
+`data/rehber.json` — İstanbul, Ankara ve İzmir'de semt semt mekanlar. Listeye girme şartı: Google'daki taraftar
+yorumlarında maç izlendiğinin yazması (en az 2 yorum, en yenisi yakın tarihli) ve mekanın açık olması; her kaydın
+`evidence` alanında kanıt özeti var (ör. "5 yorum, en yenisi 1 ay önce"). Adres, telefon ve konum Google Haritalar'dan.
+Özellikler (alkol, nargile, açık alan, dev ekran) sadece biliniyorsa işaretli; fiyat bilgisi yok, bütçe filtresi rehber mekanlarını eler.
+
+- Yeni kayıt eklemek/çıkarmak için dosyayı düzenle, sonra `/yonetim` → **Rehber** → "Paketteki listeyle güncelle".
+- Bir mekan şikayet ederse `/yonetim` → **Rehber** → **Gizle** (Firebase'e yüklenmiş olmalı).
+- Anlaşmalı bir mekan rehberdekiyle aynı telefonla kayıt olursa rehber kaydı sitede kendiliğinden gizlenir.
 
 ## Ödeme (iyzico)
 
@@ -109,13 +120,12 @@ mekan kapağı) ortada gösterilir.
 - **Stadyum fotoğrafları** (`public/stadiums`): Wikimedia Commons ve Flickr, özgür lisanslı (CC BY / CC BY-SA / CC0). Fotoğrafçı
   ve lisans her fotoğrafın üstünde gösterilir; kaynak bağlantıları `lib/teams.ts` → `stadiums`. Fikstürdeki her ev sahibinin
   stadyumu var. Shakhtar 2026-27 Şampiyonlar Ligi iç saha maçlarını Londra'da (Stamford Bridge) oynuyor.
-- **Oyuncu fotoğrafları** (`public/players`, `lib/players.ts`): her takımdan 4 oyuncu, kadrolar Wikipedia "Current squad"
-  (Ekim 2026), fotoğraflar Wikimedia Commons, künyeli. Kadro değiştikçe güncellenmeli.
 - **Atmosfer fotoğrafları** (`public/scenes`, `lib/scenes.ts`): Flickr, özgür lisanslı, künyeli.
 
 ## Sıradaki adımlar
 
 - **Otomatik yenileme**: iyzico abonelik ürünüyle her ay otomatik çekim (şu an her dönem elle ödeniyor)
 - **Üyelik bitişi**: süresi biten aktif üyelikleri `past_due` yapan zamanlanmış görev
-- **Spam koruması**: Firebase App Check (rezervasyon formu herkese açık)
-- **Bildirim**: yeni rezervasyonda mekana WhatsApp/SMS
+- **Spam koruması**: Firebase App Check (başvuru formu herkese açık)
+- **Bildirim**: yeni başvuruda yöneticiye e-posta/WhatsApp
+- **Rehber bakımı**: yorum kanıtlarını birkaç ayda bir yeniden kontrol et (mekan kapanmış ya da yayını bırakmış olabilir)

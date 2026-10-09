@@ -8,14 +8,12 @@ import Crest from './Crest';
 import Countdown from './Countdown';
 import MatchCard from './MatchCard';
 import { CityPicker, CompBadge, StadiumBackdrop } from './bits';
-import { PlayerAvatars } from './PlayerStrip';
 import { scenes } from '@/lib/scenes';
 import { Jersey, PitchLines, TvIllustration } from './art';
 import { weekdayLabel, type MatchInfo } from '@/lib/fixtures';
 import { BIG4, stadiumFor, team, type BigTeam } from '@/lib/teams';
 import { cityById, locative } from '@/lib/places';
-import { useListings, usePref } from '@/lib/hooks';
-import { plans } from '@/lib/types';
+import { useCity, useListings, usePref } from '@/lib/hooks';
 
 interface Props {
   matches: MatchInfo[];
@@ -25,21 +23,30 @@ interface Props {
 
 export default function HomeView({ matches, weekText, nextWeek }: Props) {
   const [teamPick, setTeamPick] = usePref<'all' | BigTeam>('mn.team', 'all');
-  const [city, setCity] = usePref<string>('mn.city', 'istanbul');
-  const { cafes, broadcasts, loading, error } = useListings(matches.map((m) => m.id));
+  const [city, setCity] = useCity();
+  const { cafes, broadcasts, venues, loading, error } = useListings(matches.map((m) => m.id));
 
   const visible = useMemo(
     () => (teamPick === 'all' ? matches : matches.filter((m) => m.home === teamPick || m.away === teamPick)),
     [matches, teamPick],
   );
 
+  // Maçı veren anlaşmalı mekanlar + şehrin rehber mekanları (onlar büyük maçların hepsini genelde verir)
   const cafeCity = useMemo(() => new Map(cafes.map((c) => [c.id, c.city])), [cafes]);
-  const count = (matchId: string) => (loading || error ? null : broadcasts.filter((b) => b.matchId === matchId && cafeCity.get(b.cafeId) === city).length);
+  const cityVenues = useMemo(() => venues.filter((v) => v.city === city), [venues, city]);
+  const count = (matchId: string) =>
+    loading || error ? null : broadcasts.filter((b) => b.matchId === matchId && cafeCity.get(b.cafeId) === city).length + cityVenues.length;
   const cityCounts = useMemo(() => {
     const out: Record<string, number> = {};
-    for (const c of cafes) out[c.city] = (out[c.city] ?? 0) + 1;
+    for (const c of [...cafes, ...venues]) out[c.city] = (out[c.city] ?? 0) + 1;
     return out;
-  }, [cafes]);
+  }, [cafes, venues]);
+  // Mekanı olan semtler, en kalabalıktan başlayarak
+  const semts = useMemo(() => {
+    const n = new Map<string, number>();
+    for (const p of [...cafes.filter((c) => c.city === city), ...cityVenues]) n.set(p.district, (n.get(p.district) ?? 0) + 1);
+    return (cityById(city)?.districts ?? []).filter((d) => n.has(d.id)).sort((a, b) => n.get(b.id)! - n.get(a.id)!);
+  }, [cafes, cityVenues, city]);
 
   const next = visible.find((m) => !m.finished);
   const byDay = useMemo(() => {
@@ -60,16 +67,28 @@ export default function HomeView({ matches, weekText, nextWeek }: Props) {
               Maçı nerede izliyoruz? <span className="hl">Yerini şimdiden ayırt.</span>
             </motion.h1>
             <motion.p className="lead" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.12 }}>
-              Galatasaray, Fenerbahçe, Beşiktaş ve Trabzonspor maçlarını veren anlaşmalı mekanlar. Ses açık mı, giriş kaç para,
-              kaç kişilik yer kaldı — hepsi tek ekranda.
+              Galatasaray, Fenerbahçe, Beşiktaş ve Trabzonspor maçlarını veren mekanlar. Semtini seç, mekanı bul, yerini
+              WhatsApp’tan tek mesajla ayırt.
             </motion.p>
 
             <div className="pick-label">Takımın</div>
             <TeamPicker value={teamPick} onChange={setTeamPick} />
-            <PlayerAvatars pick={teamPick} />
 
             <div className="pick-label">Şehrin</div>
             <CityPicker value={city} onChange={setCity} counts={loading ? undefined : cityCounts} />
+
+            {next && semts.length > 0 && (
+              <>
+                <div className="pick-label">Popüler semtler</div>
+                <div className="chips semt-chips">
+                  {semts.slice(0, 8).map((d) => (
+                    <Link key={d.id} className="chip" href={`/mac/${next.id}?sehir=${city}&semt=${d.id}`}>
+                      <MapPin size={14} /> {d.name}
+                    </Link>
+                  ))}
+                </div>
+              </>
+            )}
           </div>
 
           <AnimatePresence mode="wait">
@@ -232,15 +251,15 @@ function VenueBand() {
       <div>
         <h2>Mekanın maç veriyorsa, masaları biz dolduralım.</h2>
         <p>
-          Aylık {new Intl.NumberFormat('tr-TR').format(plans.standart.price)} TL’den başlayan üyelikle haritada görün, rezervasyonları doğrudan
-          al. İlk 14 gün ücretsiz.
+          Şimdilik ücretsiz. Mekanının adını, semtini ve WhatsApp numaranı bırak; profilini biz hazırlayıp onayına sunalım. Taraftarlar yer
+          sormak için doğrudan sana yazsın.
         </p>
         <Link href="/kayit" className="btn btn-primary btn-lg">
           Mekanını ekle <ArrowRight size={17} />
         </Link>
       </div>
       <ul className="perks">
-        {['Maç başına değil, aylık sabit ücret', 'Rezervasyonlar paneline anında düşer', 'Boş masa sayın sitede canlı görünür', 'Pro üyelikle her maçta en üstte'].map((t, i) => (
+        {['Kayıt 1 dakika: ad, semt, WhatsApp', 'Taraftarlar hazır mesajla WhatsApp’tan yazar', 'Ses, giriş ücreti ve kampanyanı sen girersin', 'Anlaşmalı mekanlar listede en üstte'].map((t, i) => (
           <motion.li key={t} initial={{ opacity: 0, x: 20 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }} transition={{ delay: 0.15 + i * 0.08 }}>
             <Check size={18} /> {t}
           </motion.li>

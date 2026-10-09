@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { AnimatePresence, animate, motion } from 'motion/react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { BellRing, Check, CheckCheck, CreditCard, ExternalLink, Gift, LogOut, Phone, X } from 'lucide-react';
+import { Check, CheckCheck, CreditCard, ExternalLink, Gift, LogOut, MessageCircle, X } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import Crest from './Crest';
 import PhotoPicker from './PhotoPicker';
@@ -20,25 +20,20 @@ import {
   removeBroadcast,
   saveBroadcast,
   setCover,
-  setReservationStatus,
-  watchReservations,
   watchSession,
 } from '@/lib/db';
-import { formatPhone, telLink, tl } from '@/lib/hooks';
+import { formatPhone, tl } from '@/lib/hooks';
+import { hasWhatsApp } from '@/lib/venues';
 import { toCover, toPhoto } from '@/lib/images';
 import { team } from '@/lib/teams';
-import { plans, type Broadcast, type Cafe, type CafePhoto, type Reservation } from '@/lib/types';
-import { findMatch, decorate, type MatchInfo } from '@/lib/fixtures';
+import { plans, type Broadcast, type Cafe, type CafePhoto } from '@/lib/types';
+import type { MatchInfo } from '@/lib/fixtures';
 
 export default function PanelView({ matches, weekText }: { matches: MatchInfo[]; weekText: string }) {
   const router = useRouter();
   const [cafeId, setCafeId] = useState<string | null | undefined>(undefined);
   const [cafe, setCafe] = useState<Cafe | null>(null);
   const [bcs, setBcs] = useState<Broadcast[]>([]);
-  const [res, setRes] = useState<Reservation[]>([]);
-  const [fresh, setFresh] = useState<Set<string>>(new Set());
-  const [toast, setToast] = useState<Reservation | null>(null);
-  const known = useRef<Set<string> | null>(null);
 
   useEffect(() => watchSession(setCafeId), []);
   useEffect(() => {
@@ -57,31 +52,6 @@ export default function PanelView({ matches, weekText }: { matches: MatchInfo[];
     if (cafeId) load(cafeId);
   }, [cafeId, load]);
 
-  // Rezervasyonlar canlı: yeni gelen satır yeşil yanar, köşede bildirim çıkar, doluluk tazelenir
-  useEffect(() => {
-    if (!cafeId) return;
-    known.current = null;
-    return watchReservations(cafeId, (list) => {
-      if (known.current) {
-        const added = list.filter((r) => !known.current!.has(r.id));
-        if (added.length) {
-          setFresh((f) => new Set([...f, ...added.map((r) => r.id)]));
-          setToast(added[0]);
-        }
-        // Yeni rezervasyon ya da iptal: doluluk sayıları da tazelensin
-        listCafeBroadcasts(cafeId).then(setBcs);
-      }
-      known.current = new Set(list.map((r) => r.id));
-      setRes(list);
-    });
-  }, [cafeId]);
-
-  useEffect(() => {
-    if (!toast) return;
-    const t = setTimeout(() => setToast(null), 5000);
-    return () => clearTimeout(t);
-  }, [toast]);
-
   // iyzico'dan dönüş: /panel?odeme=ok | hata
   const [payResult, setPayResult] = useState<'ok' | 'hata' | null>(null);
   useEffect(() => {
@@ -91,33 +61,6 @@ export default function PanelView({ matches, weekText }: { matches: MatchInfo[];
     window.history.replaceState(null, '', '/panel');
     if (q === 'ok') confetti({ particleCount: 120, spread: 80, origin: { y: 0.3 }, colors: ['#1e7a4c', '#e2b54a', '#ffffff'], disableForReducedMotion: true });
   }, []);
-
-  const weekIds = useMemo(() => new Set(matches.map((m) => m.id)), [matches]);
-  const live = res.filter((r) => r.status !== 'cancelled');
-  const weekRes = live.filter((r) => weekIds.has(r.matchId));
-  const stats = {
-    weekCount: weekRes.length,
-    expected: weekRes.filter((r) => r.status === 'new').reduce((s, r) => s + r.people, 0),
-    arrived: weekRes.filter((r) => r.status === 'arrived').reduce((s, r) => s + r.people, 0),
-    allArrived: live.filter((r) => r.status === 'arrived').reduce((s, r) => s + r.people, 0),
-  };
-
-  // Maç maç grupla: bu haftanın maçları tarih sırasıyla önde, eski maçlar sonra
-  const groups = useMemo(() => {
-    const byMatch = new Map<string, Reservation[]>();
-    for (const r of res) byMatch.set(r.matchId, [...(byMatch.get(r.matchId) ?? []), r]);
-    const info = (id: string) => matches.find((m) => m.id === id) ?? (findMatch(id) ? decorate(findMatch(id)!) : null);
-    return [...byMatch.entries()]
-      .map(([id, list]) => ({ m: info(id), list }))
-      .sort((a, b) => {
-        const aw = weekIds.has(a.m?.id ?? '');
-        const bw = weekIds.has(b.m?.id ?? '');
-        if (aw !== bw) return aw ? -1 : 1;
-        const ka = a.m?.kickoffISO ?? '';
-        const kb = b.m?.kickoffISO ?? '';
-        return aw ? ka.localeCompare(kb) : kb.localeCompare(ka);
-      });
-  }, [res, matches, weekIds]);
 
   if (missing) {
     return (
@@ -140,11 +83,6 @@ export default function PanelView({ matches, weekText }: { matches: MatchInfo[];
         <div className="skeleton" style={{ height: 420 }} />
       </div>
     );
-  }
-
-  async function changeStatus(r: Reservation, status: Reservation['status']) {
-    setRes((all) => all.map((x) => (x.id === r.id ? { ...x, status } : x)));
-    await setReservationStatus(r.id, status);
   }
 
   return (
@@ -185,10 +123,8 @@ export default function PanelView({ matches, weekText }: { matches: MatchInfo[];
       </AnimatePresence>
 
       <div className="stats">
-        <StatTile value={stats.arrived} label="Bu hafta gelen müşteri" highlight />
-        <StatTile value={stats.expected} label="Bu hafta beklenen kişi" />
-        <StatTile value={stats.weekCount} label="Bu haftaki rezervasyon" />
-        <StatTile value={stats.allArrived} label="Toplam gelen müşteri" />
+        <StatTile value={bcs.filter((b) => matches.some((m) => m.id === b.matchId)).length} label="Bu hafta açtığın maç" highlight />
+        <StatTile value={bcs.length} label="Toplam açtığın maç" />
       </div>
 
       <div className="panel-grid">
@@ -202,7 +138,6 @@ export default function PanelView({ matches, weekText }: { matches: MatchInfo[];
                 m={m}
                 cafe={cafe}
                 existing={bcs.find((b) => b.matchId === m.id) ?? null}
-                reservedPeople={weekRes.filter((r) => r.matchId === m.id).reduce((s, r) => s + r.people, 0)}
                 onChange={() => load(cafe.id)}
               />
             ))}
@@ -214,50 +149,19 @@ export default function PanelView({ matches, weekText }: { matches: MatchInfo[];
         <div>
           <Membership cafe={cafe} onCafe={setCafe} />
           <section className="card panel-card">
-            <h2>Gelen müşteriler</h2>
-            <p>Rezervasyonlar burada canlı düşer. Müşteri gelince “Geldi”ye bas, sayılar güncellensin.</p>
-            {res.length === 0 && <p className="faint" style={{ fontSize: 14 }}>Henüz rezervasyon yok. Maçlarını açtığında burada görünecek.</p>}
-            {groups.map(({ m, list }) => {
-              const arrived = list.filter((r) => r.status === 'arrived').reduce((s, r) => s + r.people, 0);
-              const total = list.filter((r) => r.status !== 'cancelled').reduce((s, r) => s + r.people, 0);
-              return (
-                <div key={m?.id ?? list[0].matchId} className="res-group">
-                  <div className="res-group-head">
-                    {m && (
-                      <>
-                        <Crest id={m.home} size={20} />
-                        <Crest id={m.away} size={20} />
-                        <span>
-                          {team(m.home).short}–{team(m.away).short} · {m.day} {m.time ?? ''}
-                        </span>
-                      </>
-                    )}
-                    <span className="meta">
-                      {arrived}/{total} kişi geldi
-                    </span>
-                  </div>
-                  <AnimatePresence initial={false}>
-                    {list.map((r) => (
-                      <ReservationItem key={r.id} r={r} fresh={fresh.has(r.id)} onStatus={(s) => changeStatus(r, s)} />
-                    ))}
-                  </AnimatePresence>
-                </div>
-              );
-            })}
+            <h2>Taraftarlar sana nasıl ulaşır?</h2>
+            <p>
+              Maç sayfasında “Yerini ayırt”a basan taraftar, kaç kişi olduğunu seçer ve{' '}
+              {hasWhatsApp(cafe.phone) ? 'WhatsApp numarana hazır bir mesaj gönderir' : 'seni arar'}. Yer ayırmayı kendin yönetirsin.
+            </p>
+            <p className="faint" style={{ fontSize: 14, display: 'flex', gap: 8, alignItems: 'center' }}>
+              <MessageCircle size={16} /> {formatPhone(cafe.phone)}
+              {!hasWhatsApp(cafe.phone) && ' · sabit hat; cep numarası girersen WhatsApp düğmesi açılır'}
+            </p>
           </section>
         </div>
       </div>
 
-      <AnimatePresence>
-        {toast && (
-          <motion.div className="toast" initial={{ y: 40, opacity: 0, scale: 0.95 }} animate={{ y: 0, opacity: 1, scale: 1 }} exit={{ y: 20, opacity: 0 }} transition={{ type: 'spring', stiffness: 400, damping: 28 }}>
-            <motion.span className="ic" animate={{ rotate: [0, -18, 14, -8, 0] }} transition={{ duration: 0.7, delay: 0.2 }}>
-              <BellRing size={18} />
-            </motion.span>
-            Yeni rezervasyon: {toast.name} · {toast.people} kişi
-          </motion.div>
-        )}
-      </AnimatePresence>
     </div>
   );
 }
@@ -383,7 +287,7 @@ function Membership({ cafe, onCafe }: { cafe: Cafe; onCafe: (c: Cafe) => void })
             ? `${cafe.activationCode} koduyla ${renews} tarihine kadar ücretsizsin.`
             : total > 30
               ? `${renews} tarihine kadar ücretsizsin.`
-              : `Deneme ${renews} tarihinde bitiyor. Ödeme bağlantısı e-postana gelecek.`}
+              : `Deneme ${renews} tarihinde bitiyor. Devam etmek için üyeliğini buradan başlatabilirsin.`}
       </p>
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
         <button className="btn btn-primary btn-sm" onClick={() => setPaying(true)}>
@@ -398,12 +302,11 @@ function Membership({ cafe, onCafe }: { cafe: Cafe; onCafe: (c: Cafe) => void })
   );
 }
 
-function BroadcastRow({ m, cafe, existing, reservedPeople, onChange }: { m: MatchInfo; cafe: Cafe; existing: Broadcast | null; reservedPeople: number; onChange: () => void }) {
+function BroadcastRow({ m, cafe, existing, onChange }: { m: MatchInfo; cafe: Cafe; existing: Broadcast | null; onChange: () => void }) {
   const [on, setOn] = useState(!!existing);
   const [sound, setSound] = useState(existing?.sound ?? true);
   const [entryFee, setEntryFee] = useState(existing?.entryFee ? String(existing.entryFee) : '');
   const [minSpend, setMinSpend] = useState(existing?.minSpend ? String(existing.minSpend) : '');
-  const [seats, setSeats] = useState(String(existing?.seats ?? cafe.capacity));
   const [resReq, setResReq] = useState(existing?.reservationRequired ?? false);
   const [note, setNote] = useState(existing?.note ?? '');
   const [state, setState] = useState<'idle' | 'saving' | 'saved'>('idle');
@@ -416,10 +319,9 @@ function BroadcastRow({ m, cafe, existing, reservedPeople, onChange }: { m: Matc
       existing.sound !== sound ||
       String(existing.entryFee ?? '') !== entryFee ||
       String(existing.minSpend ?? '') !== minSpend ||
-      String(existing.seats) !== seats ||
       existing.reservationRequired !== resReq ||
       (existing.note ?? '') !== note,
-    [existing, sound, entryFee, minSpend, seats, resReq, note],
+    [existing, sound, entryFee, minSpend, resReq, note],
   );
 
   async function save() {
@@ -431,8 +333,6 @@ function BroadcastRow({ m, cafe, existing, reservedPeople, onChange }: { m: Matc
       sound,
       entryFee: n(entryFee),
       minSpend: n(minSpend),
-      seats: Math.max(n(seats) ?? cafe.capacity, existing?.reserved ?? 0),
-      reserved: existing?.reserved ?? 0,
       reservationRequired: resReq,
       note: note.trim() || undefined,
       kickoff: m.kickoffISO,
@@ -444,7 +344,6 @@ function BroadcastRow({ m, cafe, existing, reservedPeople, onChange }: { m: Matc
 
   async function toggle() {
     if (on && existing) {
-      if (existing.reserved > 0 && !confirm(`${existing.reserved} kişilik rezervasyon var. Yine de bu maçı kaldırmak istiyor musun?`)) return;
       setOn(false);
       await removeBroadcast(cafe.id, m.id);
       onChange();
@@ -464,8 +363,7 @@ function BroadcastRow({ m, cafe, existing, reservedPeople, onChange }: { m: Matc
             {home.name} – {away.name}
           </b>
           <span>
-            {m.day} {m.time ?? ''} {existing && ` · ${existing.reserved}/${existing.seats} dolu`}
-            {reservedPeople > 0 && !existing && ` · ${reservedPeople} kişi`}
+            {m.day} {m.time ?? ''}
           </span>
         </div>
         <button className="switch" role="switch" aria-checked={on} aria-label={`${home.name} – ${away.name} maçını ver`} onClick={toggle} disabled={m.finished}>
@@ -476,7 +374,7 @@ function BroadcastRow({ m, cafe, existing, reservedPeople, onChange }: { m: Matc
         {on && !m.finished && (
           <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.25 }} style={{ overflow: 'hidden' }}>
             <div className="bc-body">
-              <div className="row-3">
+              <div className="row-2">
                 <div className="field">
                   <label htmlFor={`${m.id}-fee`}>Giriş (TL)</label>
                   <input id={`${m.id}-fee`} className="input" type="number" min={0} inputMode="numeric" placeholder="Yok" value={entryFee} onChange={(e) => setEntryFee(e.target.value)} />
@@ -484,10 +382,6 @@ function BroadcastRow({ m, cafe, existing, reservedPeople, onChange }: { m: Matc
                 <div className="field">
                   <label htmlFor={`${m.id}-min`}>Min. harcama (TL)</label>
                   <input id={`${m.id}-min`} className="input" type="number" min={0} inputMode="numeric" placeholder="Yok" value={minSpend} onChange={(e) => setMinSpend(e.target.value)} />
-                </div>
-                <div className="field">
-                  <label htmlFor={`${m.id}-seats`}>Ayrılabilir yer</label>
-                  <input id={`${m.id}-seats`} className="input" type="number" min={1} inputMode="numeric" value={seats} onChange={(e) => setSeats(e.target.value)} />
                 </div>
               </div>
               <div className="toolbar-row" style={{ marginBottom: 12 }}>
@@ -501,7 +395,7 @@ function BroadcastRow({ m, cafe, existing, reservedPeople, onChange }: { m: Matc
                 </div>
                 <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, fontWeight: 500, cursor: 'pointer' }}>
                   <input type="checkbox" checked={resReq} onChange={(e) => setResReq(e.target.checked)} style={{ width: 18, height: 18, accentColor: 'var(--accent)' }} />
-                  Rezervasyon şart
+                  Önceden yer ayırtmak şart
                 </label>
               </div>
               <div className="field">
@@ -528,46 +422,5 @@ function BroadcastRow({ m, cafe, existing, reservedPeople, onChange }: { m: Matc
         )}
       </AnimatePresence>
     </div>
-  );
-}
-
-function ReservationItem({ r, fresh, onStatus }: { r: Reservation; fresh: boolean; onStatus: (s: Reservation['status']) => void }) {
-  const when = new Intl.DateTimeFormat('tr-TR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(r.createdAt));
-  // "Gelmedi" ancak maç başladıktan sonra işaretlenebilir
-  const started = !r.kickoff || Date.now() >= new Date(r.kickoff).getTime();
-  return (
-    <motion.div className={`res-item${fresh ? ' fresh' : ''}${r.status === 'cancelled' ? ' cancelled' : ''}`} layout initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }}>
-      <span className="res-people">{r.people}</span>
-      <div className="who">
-        <b>
-          {r.name}
-          {fresh && r.status === 'new' && <span className="new-dot">YENİ</span>}
-          {r.status === 'cancelled' && <span className="res-tag">İptal etti</span>}
-          {r.status === 'noshow' && <span className="res-tag off">Gelmedi</span>}
-        </b>
-        <span>
-          {formatPhone(r.phone)} · {r.code} · {when}
-        </span>
-      </div>
-      {r.status !== 'cancelled' && (
-        <>
-          <a className="icon-btn" href={telLink(r.phone)} aria-label={`${r.name} kişisini ara`}>
-            <Phone size={16} />
-          </a>
-          <button className={`btn btn-sm ${r.status === 'arrived' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => onStatus(r.status === 'arrived' ? 'new' : 'arrived')}>
-            {r.status === 'arrived' ? <Check size={15} /> : null} Geldi
-          </button>
-          {started && (
-            <button
-              className={`btn btn-sm ${r.status === 'noshow' ? 'btn-soft' : 'btn-ghost'} danger`}
-              onClick={() => onStatus(r.status === 'noshow' ? 'new' : 'noshow')}
-              title="Rezervasyona gelmeyen müşteriyi işaretle (2 kez olursa 30 gün rezervasyon yapamaz)"
-            >
-              Gelmedi
-            </button>
-          )}
-        </>
-      )}
-    </motion.div>
   );
 }

@@ -12,7 +12,7 @@ export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
   title: 'MaçNerede — Bu haftaki maçı hangi mekanda izlersin?',
-  description: 'Galatasaray, Fenerbahçe, Beşiktaş ve Trabzonspor maçlarını veren anlaşmalı kafe ve pub’lar. Ses açık mı, giriş ücreti, boş yer — tek tıkla yerini ayırt.',
+  description: 'Galatasaray, Fenerbahçe, Beşiktaş ve Trabzonspor maçlarını veren kafe ve pub’lar: İstanbul, Ankara, İzmir. Semtini seç, mekanı bul, yerini WhatsApp’tan ayırt.',
 };
 
 export const viewport: Viewport = {

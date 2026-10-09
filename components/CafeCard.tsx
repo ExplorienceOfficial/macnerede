@@ -2,11 +2,12 @@
 
 import Link from 'next/link';
 import { motion } from 'motion/react';
-import { Info, Navigation, Phone, Star, Ticket, Trees, Tv, Volume2, VolumeX } from 'lucide-react';
+import { BadgeCheck, Info, MessageCircle, Navigation, Phone, Star, Trees, Tv, Volume2, VolumeX } from 'lucide-react';
 import { FanBadge, KindIcon } from './bits';
 import { HookahIcon, PintIcon } from './art';
 import { directionsLink, formatPhone, telLink, tl } from '@/lib/hooks';
 import { districtName } from '@/lib/places';
+import { hasWhatsApp } from '@/lib/venues';
 import type { Broadcast, Cafe } from '@/lib/types';
 
 interface Props {
@@ -14,14 +15,13 @@ interface Props {
   b: Broadcast;
   index: number;
   active: boolean;
-  onReserve: (cafeId: string) => void;
+  onSeat: (cafeId: string) => void;
   onFocus: (cafeId: string) => void;
 }
 
-export default function CafeCard({ cafe, b, index, active, onReserve, onFocus }: Props) {
-  const left = Math.max(0, b.seats - b.reserved);
-  const pct = b.seats ? Math.min(100, Math.round((b.reserved / b.seats) * 100)) : 0;
+export default function CafeCard({ cafe, b, index, active, onSeat, onFocus }: Props) {
   const pro = cafe.plan === 'pro';
+  const wa = hasWhatsApp(cafe.phone);
 
   return (
     <motion.article
@@ -65,6 +65,9 @@ export default function CafeCard({ cafe, b, index, active, onReserve, onFocus }:
       )}
 
       <div className="cc-pills">
+        <span className="pill ok">
+          <BadgeCheck size={15} /> Anlaşmalı · bu maçı veriyor
+        </span>
         <span className={`pill${b.sound ? ' ok' : ''}`}>
           {b.sound ? <Volume2 size={15} /> : <VolumeX size={15} />} {b.sound ? 'Ses açık' : 'Ses kapalı'}
         </span>
@@ -83,10 +86,10 @@ export default function CafeCard({ cafe, b, index, active, onReserve, onFocus }:
         )}
         {cafe.features.garden && (
           <span className="pill">
-            <Trees size={15} /> Bahçe
+            <Trees size={15} /> Açık alan
           </span>
         )}
-        {b.reservationRequired && <span className="pill" style={{ background: 'var(--danger-soft)', color: 'var(--danger)' }}>Rezervasyon şart</span>}
+        {b.reservationRequired && <span className="pill" style={{ background: 'var(--danger-soft)', color: 'var(--danger)' }}>Önceden yer ayırt</span>}
       </div>
 
       <div className="cc-prices">
@@ -112,30 +115,21 @@ export default function CafeCard({ cafe, b, index, active, onReserve, onFocus }:
         </p>
       )}
 
-      <div className="occ">
-        <div className="occ-top">
-          <span>{left > 0 ? `${left} kişilik yer kaldı` : 'Rezervasyonlar doldu'}</span>
-          <span>
-            {b.reserved}/{b.seats} dolu
-          </span>
-        </div>
-        <div className="occ-track">
-          <motion.div
-            className={`occ-fill${pct >= 100 ? ' full' : pct >= 75 ? ' hot' : ''}`}
-            initial={{ width: 0 }}
-            animate={{ width: `${pct}%` }}
-            transition={{ duration: 0.9, ease: [0.2, 0.7, 0.3, 1], delay: 0.15 }}
-          />
-        </div>
-      </div>
-
       <div className="cc-actions">
-        <motion.button className="btn btn-primary" disabled={left <= 0} onClick={() => onReserve(cafe.id)} whileTap={{ scale: 0.95 }}>
-          <Ticket size={16} /> Yerini ayırt
-        </motion.button>
-        <a className="btn btn-soft" href={telLink(cafe.phone)} title={formatPhone(cafe.phone)}>
-          <Phone size={15} /> Ara
-        </a>
+        {wa ? (
+          <motion.button className="btn btn-primary" onClick={() => onSeat(cafe.id)} whileTap={{ scale: 0.95 }}>
+            <MessageCircle size={16} /> Yerini ayırt
+          </motion.button>
+        ) : (
+          <a className="btn btn-primary" href={telLink(cafe.phone)}>
+            <Phone size={16} /> Arayıp yer ayırt
+          </a>
+        )}
+        {wa && (
+          <a className="btn btn-soft" href={telLink(cafe.phone)} title={formatPhone(cafe.phone)}>
+            <Phone size={15} /> Ara
+          </a>
+        )}
         <button className="btn btn-ghost" onClick={() => onFocus(cafe.id)}>
           Haritada
         </button>

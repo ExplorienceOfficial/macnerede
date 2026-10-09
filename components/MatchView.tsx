@@ -7,23 +7,37 @@ import { ChevronLeft, List, Map as MapIcon } from 'lucide-react';
 import Crest from './Crest';
 import Countdown from './Countdown';
 import CafeCard from './CafeCard';
+import VenueCard from './VenueCard';
 import CafeMap from './CafeMap';
-import ReserveSheet from './ReserveSheet';
-import { PlayerCards } from './PlayerStrip';
+import SeatSheet, { type SeatPlace } from './SeatSheet';
 import { CityPicker, CompBadge, StadiumBackdrop } from './bits';
 import { PitchLines, TvIllustration } from './art';
 import type { MatchInfo } from '@/lib/fixtures';
-import { useListings, usePref } from '@/lib/hooks';
+import { useCity, useListings } from '@/lib/hooks';
 import { cityById, distanceKm, locative } from '@/lib/places';
 import { bigTeamsIn, type Match } from '@/lib/fixtures';
 import { stadiumFor, team, type BigTeam } from '@/lib/teams';
+import { priceLevel, type Broadcast, type Cafe, type Venue } from '@/lib/types';
 
-type FilterId = 'sound' | 'big' | 'alcohol' | 'hookah' | 'free' | 'seats' | `fan-${BigTeam}`;
+type FilterId = 'sound' | 'big' | 'alcohol' | 'hookah' | 'garden' | 'free' | `fan-${BigTeam}`;
+/** Bu bilgiler sadece anlaşmalı mekanlarda var; rehber mekanları bu filtrelerle elenir */
+const PARTNER_ONLY: FilterId[] = ['sound', 'free'];
 
-export default function MatchView({ match, initialCity }: { match: MatchInfo; initialCity?: string }) {
-  const [storedCity, setStoredCity] = usePref<string>('mn.city', 'istanbul');
+type Row = { type: 'cafe'; id: string; c: Cafe; b: Broadcast } | { type: 'venue'; id: string; v: Venue };
+
+export default function MatchView({ match, initialCity, initialDistrict }: { match: MatchInfo; initialCity?: string; initialDistrict?: string }) {
+  const [storedCity, setStoredCity] = useCity();
   const [cityOverride, setCityOverride] = useState(initialCity && cityById(initialCity) ? initialCity : null);
   const city = cityOverride ?? storedCity;
+  const cityInfo = cityById(city)!;
+
+  const [district, setDistrict] = useState(initialDistrict && cityInfo.districts.some((d) => d.id === initialDistrict) ? initialDistrict : 'all');
+  const [filters, setFilters] = useState<Set<FilterId>>(new Set());
+  const [budget, setBudget] = useState<1 | 2 | 3 | null>(null);
+  const [active, setActive] = useState<string | null>(null);
+  const [view, setView] = useState<'list' | 'map'>('list');
+  const [seating, setSeating] = useState<string | null>(null);
+
   const setCity = (c: string) => {
     setCityOverride(null);
     setStoredCity(c);
@@ -31,60 +45,69 @@ export default function MatchView({ match, initialCity }: { match: MatchInfo; in
     setActive(null);
   };
 
-  const [district, setDistrict] = useState('all');
-  const [filters, setFilters] = useState<Set<FilterId>>(new Set());
-  const [active, setActive] = useState<string | null>(null);
-  const [view, setView] = useState<'list' | 'map'>('list');
-  const [reserving, setReserving] = useState<string | null>(null);
-
-  const { cafes, broadcasts, loading, error, addReserved } = useListings([match.id]);
+  const { cafes, broadcasts, venues, loading, error } = useListings([match.id]);
   const cafeById = useMemo(() => new Map(cafes.map((c) => [c.id, c])), [cafes]);
   const fanTeams = bigTeamsIn(match as Match);
 
-  const inCity = useMemo(
-    () =>
-      broadcasts
-        .map((b) => ({ b, c: cafeById.get(b.cafeId)! }))
-        .filter((x) => x.c && x.c.city === city),
-    [broadcasts, cafeById, city],
+  // Anlaşmalı mekanlar bu maçı girdiyse, rehber mekanları her büyük maçı genelde verir
+  const all = useMemo<Row[]>(
+    () => [
+      ...broadcasts.flatMap((b) => {
+        const c = cafeById.get(b.cafeId);
+        return c ? [{ type: 'cafe' as const, id: c.id, c, b }] : [];
+      }),
+      ...venues.map((v) => ({ type: 'venue' as const, id: v.id, v })),
+    ],
+    [broadcasts, cafeById, venues],
   );
+  const place = (r: Row) => (r.type === 'cafe' ? r.c : r.v);
+
+  const inCity = useMemo(() => all.filter((r) => place(r).city === city), [all, city]);
 
   const cityCounts = useMemo(() => {
     const out: Record<string, number> = {};
-    for (const b of broadcasts) {
-      const c = cafeById.get(b.cafeId);
-      if (c) out[c.city] = (out[c.city] ?? 0) + 1;
-    }
+    for (const r of all) out[place(r).city] = (out[place(r).city] ?? 0) + 1;
     return out;
-  }, [broadcasts, cafeById]);
+  }, [all]);
 
   const districts = useMemo(() => {
     const counts = new Map<string, number>();
-    inCity.forEach(({ c }) => counts.set(c.district, (counts.get(c.district) ?? 0) + 1));
-    return (cityById(city)?.districts ?? []).filter((d) => counts.has(d.id)).map((d) => ({ ...d, n: counts.get(d.id)! }));
-  }, [inCity, city]);
+    inCity.forEach((r) => counts.set(place(r).district, (counts.get(place(r).district) ?? 0) + 1));
+    return cityInfo.districts.filter((d) => counts.has(d.id)).map((d) => ({ ...d, n: counts.get(d.id)! }));
+  }, [inCity, cityInfo]);
+
+  const partnerOnlyActive = PARTNER_ONLY.some((f) => filters.has(f)) || [...filters].some((f) => f.startsWith('fan-')) || budget !== null;
 
   const rows = useMemo(() => {
     return inCity
-      .filter(({ b, c }) => {
-        if (district !== 'all' && c.district !== district) return false;
-        if (filters.has('sound') && !b.sound) return false;
-        if (filters.has('big') && !c.features.bigScreen) return false;
-        if (filters.has('alcohol') && !c.features.alcohol) return false;
-        if (filters.has('hookah') && !c.features.hookah) return false;
-        if (filters.has('free') && b.entryFee) return false;
-        if (filters.has('seats') && b.seats - b.reserved <= 0) return false;
+      .filter((r) => {
+        const p = place(r);
+        if (district !== 'all' && p.district !== district) return false;
+        if (filters.has('big') && !p.features.bigScreen) return false;
+        if (filters.has('alcohol') && !p.features.alcohol) return false;
+        if (filters.has('hookah') && !p.features.hookah) return false;
+        if (filters.has('garden') && !p.features.garden) return false;
+        if (r.type === 'venue') return !partnerOnlyActive;
+        if (filters.has('sound') && !r.b.sound) return false;
+        if (filters.has('free') && r.b.entryFee) return false;
+        if (budget && priceLevel(r.c.priceMin, r.c.priceMax) !== budget) return false;
         const fan = [...filters].find((f) => f.startsWith('fan-'));
-        if (fan && c.fanOf !== fan.slice(4)) return false;
+        if (fan && r.c.fanOf !== fan.slice(4)) return false;
         return true;
       })
-      .sort(
-        (x, y) =>
-          Number(y.c.plan === 'pro') - Number(x.c.plan === 'pro') ||
-          Number(!!y.c.fanOf && fanTeams.includes(y.c.fanOf)) - Number(!!x.c.fanOf && fanTeams.includes(x.c.fanOf)) ||
-          y.b.seats - y.b.reserved - (x.b.seats - x.b.reserved),
-      );
-  }, [inCity, district, filters, fanTeams]);
+      .sort((x, y) => {
+        if (x.type !== y.type) return x.type === 'cafe' ? -1 : 1;
+        if (x.type === 'cafe' && y.type === 'cafe') {
+          return (
+            Number(y.c.plan === 'pro') - Number(x.c.plan === 'pro') ||
+            Number(!!y.c.fanOf && fanTeams.includes(y.c.fanOf)) - Number(!!x.c.fanOf && fanTeams.includes(x.c.fanOf))
+          );
+        }
+        return ((y as { v: Venue }).v.reviews ?? 0) - ((x as { v: Venue }).v.reviews ?? 0);
+      });
+  }, [inCity, district, filters, budget, fanTeams, partnerOnlyActive]);
+
+  const partnerCount = rows.filter((r) => r.type === 'cafe').length;
 
   function toggle(f: FilterId) {
     setFilters((prev) => {
@@ -103,13 +126,14 @@ export default function MatchView({ match, initialCity }: { match: MatchInfo; in
     document.getElementById(`cafe-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
 
-  const cityInfo = cityById(city)!;
   // Maçın stadyumu seçili şehirdeyse haritada fotoğraflı işaretçiyle gösterilir
   const homeStadium = stadiumFor(match.home);
   const mapStadium = homeStadium && distanceKm(homeStadium.coords, cityInfo.center) < 60 ? { ...homeStadium, homeId: match.home } : null;
   const home = team(match.home);
   const away = team(match.away);
-  const resRow = reserving ? rows.find((r) => r.c.id === reserving) ?? inCity.find((r) => r.c.id === reserving) : null;
+  const seatRow = seating ? inCity.find((r) => r.id === seating) : null;
+  const seatPlace: SeatPlace | null = seatRow ? place(seatRow) : null;
+  const filtered = filters.size > 0 || budget !== null || district !== 'all';
 
   const filterDefs: { id: FilterId; label: React.ReactNode }[] = [
     ...fanTeams.map((t) => ({
@@ -122,7 +146,7 @@ export default function MatchView({ match, initialCity }: { match: MatchInfo; in
     })),
     { id: 'sound', label: 'Ses açık' },
     { id: 'big', label: 'Dev ekran' },
-    { id: 'seats', label: 'Boş yer var' },
+    { id: 'garden', label: 'Açık alan' },
     { id: 'free', label: 'Girişsiz' },
     { id: 'alcohol', label: 'Alkol var' },
     { id: 'hookah', label: 'Nargile' },
@@ -165,19 +189,17 @@ export default function MatchView({ match, initialCity }: { match: MatchInfo; in
         {match.finished && <p className="faint" style={{ textAlign: 'center', position: 'relative' }}>Bu maç oynandı.</p>}
       </motion.section>
 
-      <PlayerCards teams={fanTeams} />
-
       <div className="toolbar">
         <div className="toolbar-row">
           <CityPicker value={city} onChange={setCity} counts={loading ? undefined : cityCounts} />
         </div>
-        {districts.length > 1 && (
-          <div className="toolbar-row chips">
+        {districts.length > 0 && (
+          <div className="toolbar-row chips" role="group" aria-label="Semt">
             <button className="chip" aria-pressed={district === 'all'} onClick={() => setDistrict('all')}>
               Tüm {cityInfo.name}
             </button>
             {districts.map((d) => (
-              <button key={d.id} className="chip" aria-pressed={district === d.id} onClick={() => setDistrict(d.id)}>
+              <button key={d.id} className="chip" aria-pressed={district === d.id} onClick={() => setDistrict(district === d.id ? 'all' : d.id)}>
                 {d.name} <span className="faint">{d.n}</span>
               </button>
             ))}
@@ -189,6 +211,12 @@ export default function MatchView({ match, initialCity }: { match: MatchInfo; in
               {f.label}
             </motion.button>
           ))}
+          <span className="chip-sep" aria-hidden />
+          {([1, 2, 3] as const).map((lvl) => (
+            <motion.button key={lvl} className="chip" aria-pressed={budget === lvl} onClick={() => setBudget(budget === lvl ? null : lvl)} whileTap={{ scale: 0.94 }} title={['Uygun', 'Orta', 'Pahalı'][lvl - 1]}>
+              {'₺'.repeat(lvl)}
+            </motion.button>
+          ))}
         </div>
         <div className="toolbar-row" style={{ justifyContent: 'space-between' }}>
           <p className="list-count">
@@ -196,7 +224,8 @@ export default function MatchView({ match, initialCity }: { match: MatchInfo; in
               'Mekanlar yükleniyor…'
             ) : (
               <>
-                {locative(cityInfo.name)} <b>{rows.length} anlaşmalı mekan</b> bu maçı veriyor
+                {locative(district === 'all' ? cityInfo.name : cityInfo.districts.find((d) => d.id === district)!.name)} <b>{rows.length} mekan</b>
+                {partnerCount > 0 && <span className="faint"> · {partnerCount} anlaşmalı</span>}
               </>
             )}
           </p>
@@ -217,15 +246,18 @@ export default function MatchView({ match, initialCity }: { match: MatchInfo; in
 
       <div className="cafe-layout" data-view={view}>
         <div className="cafe-list">
-          {loading &&
-            [0, 1, 2].map((i) => <div key={i} className="skeleton" style={{ height: 250 }} />)}
+          {loading && [0, 1, 2].map((i) => <div key={i} className="skeleton" style={{ height: 250 }} />)}
 
           {!loading && !error && rows.length === 0 && (
             <motion.div className="card empty" initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }}>
               <TvIllustration home={match.home} away={match.away} />
-              <strong>{filters.size || district !== 'all' ? 'Bu filtrelere uyan mekan yok' : `${locative(cityInfo.name)} henüz anlaşmalı mekan yok`}</strong>
-              {filters.size || district !== 'all' ? 'Bir filtreyi kaldırmayı dene.' : 'Mekan sahibi misin? İlk sen ol.'}
-              {!filters.size && district === 'all' && (
+              <strong>{filtered ? 'Bu filtrelere uyan mekan yok' : `${locative(cityInfo.name)} henüz mekan yok`}</strong>
+              {filtered
+                ? partnerOnlyActive
+                  ? 'Ses, giriş ücreti, taraftar ve bütçe bilgisi sadece anlaşmalı mekanlarda var. Bir filtreyi kaldırmayı dene.'
+                  : 'Bir filtreyi kaldırmayı dene.'
+                : 'Mekan sahibi misin? İlk sen ol.'}
+              {!filtered && (
                 <Link href="/kayit" className="btn btn-primary btn-sm" style={{ marginTop: 6 }}>
                   Mekanını ekle
                 </Link>
@@ -235,16 +267,25 @@ export default function MatchView({ match, initialCity }: { match: MatchInfo; in
 
           <LayoutGroup>
             <AnimatePresence mode="popLayout">
-              {rows.map(({ b, c }, i) => (
-                <CafeCard key={c.id} cafe={c} b={b} index={i} active={active === c.id} onReserve={setReserving} onFocus={focus} />
-              ))}
+              {rows.map((r, i) =>
+                r.type === 'cafe' ? (
+                  <CafeCard key={r.id} cafe={r.c} b={r.b} index={i} active={active === r.id} onSeat={setSeating} onFocus={focus} />
+                ) : (
+                  <VenueCard key={r.id} v={r.v} index={i} active={active === r.id} onSeat={setSeating} onFocus={focus} />
+                ),
+              )}
             </AnimatePresence>
           </LayoutGroup>
         </div>
 
         <div className="map-wrap">
           <CafeMap
-            cafes={rows.map(({ c }) => ({ id: c.id, name: c.name, lat: c.lat, lng: c.lng, kind: c.kind, pro: c.plan === 'pro', fanOf: c.fanOf, cover: c.cover }))}
+            cafes={rows.map((r) => {
+              const p = place(r);
+              return r.type === 'cafe'
+                ? { id: r.id, name: p.name, lat: p.lat, lng: p.lng, kind: p.kind, pro: r.c.plan === 'pro', fanOf: r.c.fanOf, cover: r.c.cover }
+                : { id: r.id, name: p.name, lat: p.lat, lng: p.lng, kind: p.kind, pro: false, fanOf: null, guide: true };
+            })}
             stadium={mapStadium}
             activeId={active}
             onSelect={(id) => {
@@ -256,18 +297,7 @@ export default function MatchView({ match, initialCity }: { match: MatchInfo; in
         </div>
       </div>
 
-      <AnimatePresence>
-        {resRow && (
-          <ReserveSheet
-            key={resRow.c.id}
-            cafe={resRow.c}
-            b={resRow.b}
-            match={match}
-            onClose={() => setReserving(null)}
-            onReserved={(n) => addReserved(resRow.c.id, match.id, n)}
-          />
-        )}
-      </AnimatePresence>
+      <AnimatePresence>{seatPlace && <SeatSheet key={seating} place={seatPlace} match={match} onClose={() => setSeating(null)} />}</AnimatePresence>
     </div>
   );
 }

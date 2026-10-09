@@ -2,22 +2,19 @@
 //   firebase emulators:exec --only firestore --project demo-macnerede "node tests/rules.test.mjs"
 import { readFileSync } from 'node:fs';
 import { assertFails, assertSucceeds, initializeTestEnvironment } from '@firebase/rules-unit-testing';
-import { Timestamp, doc, getDoc, serverTimestamp, setDoc, updateDoc, writeBatch } from 'firebase/firestore';
+import { Timestamp, addDoc, collection, deleteDoc, doc, getDoc, getDocs, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore';
 
 const env = await initializeTestEnvironment({
   projectId: 'demo-macnerede',
   firestore: { rules: readFileSync('firestore.rules', 'utf8') },
 });
 
-const H = 3600 * 1000;
-const ts = (ms) => Timestamp.fromMillis(Date.now() + ms);
-// Maç saati: yayın ve rezervasyon aynı değeri kullanır (uygulamada ikisi de fikstürden gelir)
-let KICKOFF = ts(3 * 3600 * 1000);
 let passed = 0;
 let failed = 0;
 
 async function check(name, fn) {
   try {
+    await env.clearFirestore();
     await fn();
     passed++;
     console.log('  ✓', name);
@@ -27,112 +24,79 @@ async function check(name, fn) {
   }
 }
 
-/** Her senaryo temiz veriyle: kafe1'in m1 maçı (10 yer) */
-async function seed(kickoffMs = 3 * H, extra = {}) {
-  KICKOFF = ts(kickoffMs);
-  await env.clearFirestore();
-  await env.withSecurityRulesDisabled(async (ctx) => {
-    const db = ctx.firestore();
-    await setDoc(doc(db, 'broadcasts/cafe1_m1'), { cafeId: 'cafe1', matchId: 'm1', seats: 10, reserved: 0, sound: true, kickoff: KICKOFF, ...extra });
-  });
-}
+const seedDoc = (path, data) => env.withSecurityRulesDisabled((ctx) => setDoc(doc(ctx.firestore(), path), data));
 
-const resData = (uid, people = 2) => ({
-  cafeId: 'cafe1', matchId: 'm1', userId: uid, name: 'Ali Taraftar', phone: '05001112233',
-  people, code: 'MN-TEST1', createdAt: new Date().toISOString(), status: 'new', kickoff: KICKOFF,
-});
-
-/** Uygulamanın yaptığı gibi: rezervasyon + sayaç tek işlemde */
-async function book(db, uid, id, people = 2, reservedBefore = 0) {
-  const b = writeBatch(db);
-  b.set(doc(db, 'reservations', id), resData(uid, people));
-  b.update(doc(db, 'broadcasts/cafe1_m1'), { reserved: reservedBefore + people, lastRes: id });
-  return b.commit();
-}
-
-async function cancel(db, id, people = 2, reservedBefore = 2) {
-  const b = writeBatch(db);
-  b.update(doc(db, 'reservations', id), { status: 'cancelled', cancelledAt: serverTimestamp() });
-  b.update(doc(db, 'broadcasts/cafe1_m1'), { reserved: reservedBefore - people, lastRes: id });
-  return b.commit();
-}
-
-const ali = () => env.authenticatedContext('ali').firestore();
-const veli = () => env.authenticatedContext('veli').firestore();
 const cafe = () => env.authenticatedContext('cafe1').firestore();
+const other = () => env.authenticatedContext('cafe2').firestore();
 const anon = () => env.unauthenticatedContext().firestore();
+const admin = () => env.authenticatedContext('admin', { email: 'kagankarki03@gmail.com', email_verified: true }).firestore();
+const impostor = () => env.authenticatedContext('x', { email: 'kagankarki03@gmail.com', email_verified: false }).firestore();
 
-console.log('Rezervasyon:');
-await check('giriş yapmış taraftar yer ayırtabilir', async () => {
-  await seed();
-  await assertSucceeds(book(ali(), 'ali', 'r1'));
+const bc = (cafeId = 'cafe1', matchId = 'm1') => ({ cafeId, matchId, sound: true, entryFee: null, minSpend: null, reservationRequired: false });
+const lead = (extra = {}) => ({ name: 'Moda Köşe Pub', city: 'istanbul', district: 'kadikoy', phone: '905321234567', venueId: null, createdAt: serverTimestamp(), ...extra });
+const venue = { name: 'Rehber Pub', city: 'ankara', district: 'kizilay', kind: 'Pub', phone: '903120000000' };
+
+console.log('Maç yayınları:');
+await check('mekan kendi maçını açabilir', async () => {
+  await assertSucceeds(setDoc(doc(cafe(), 'broadcasts/cafe1_m1'), bc()));
 });
-await check('giriş yapmadan rezervasyon yapılamaz', async () => {
-  await seed();
-  await assertFails(book(anon(), 'ali', 'r1'));
+await check('başka mekan adına maç açılamaz', async () => {
+  await assertFails(setDoc(doc(other(), 'broadcasts/cafe1_m1'), bc()));
 });
-await check('başkası adına rezervasyon yapılamaz', async () => {
-  await seed();
-  await assertFails(book(veli(), 'ali', 'r1'));
+await check('belge adı uid_maçId değilse reddedilir', async () => {
+  await assertFails(setDoc(doc(cafe(), 'broadcasts/cafe1_baska'), bc()));
 });
-await check('13 kişilik rezervasyon reddedilir', async () => {
-  await seed();
-  await assertFails(book(ali(), 'ali', 'r1', 13));
+await check('başka mekanın yayını değiştirilemez ve silinemez', async () => {
+  await seedDoc('broadcasts/cafe1_m1', bc());
+  await assertFails(updateDoc(doc(other(), 'broadcasts/cafe1_m1'), { sound: false }));
+  await assertFails(deleteDoc(doc(other(), 'broadcasts/cafe1_m1')));
 });
-await check('maç başladıktan sonra rezervasyon reddedilir', async () => {
-  await seed(-10 * 60 * 1000);
-  await assertFails(book(ali(), 'ali', 'r1'));
-});
-await check('sayaç artırılmadan rezervasyon oluşturulamaz', async () => {
-  await seed();
-  await assertFails(setDoc(doc(ali(), 'reservations/r1'), resData('ali')));
-});
-await check('rezervasyonsuz sayaç şişirilemez', async () => {
-  await seed();
-  await assertFails(updateDoc(doc(ali(), 'broadcasts/cafe1_m1'), { reserved: 8, lastRes: 'yok' }));
-});
-await check('kapasite aşılamaz', async () => {
-  await seed(3 * H, { reserved: 9 });
-  await assertFails(book(ali(), 'ali', 'r1', 2, 9));
+await check('herkes yayınları okuyabilir', async () => {
+  await seedDoc('broadcasts/cafe1_m1', bc());
+  await assertSucceeds(getDoc(doc(anon(), 'broadcasts/cafe1_m1')));
 });
 
-console.log('İptal:');
-await check('maça 3 saat varken iptal edilebilir', async () => {
-  await seed();
-  await book(ali(), 'ali', 'r1');
-  await assertSucceeds(cancel(ali(), 'r1'));
+console.log('Rehber mekanları:');
+await check('herkes rehberi okuyabilir', async () => {
+  await seedDoc('venues/v1', venue);
+  await assertSucceeds(getDocs(collection(anon(), 'venues')));
 });
-await check('maça 30 dk kala iptal reddedilir', async () => {
-  await seed(30 * 60 * 1000);
-  await book(ali(), 'ali', 'r1');
-  await assertFails(cancel(ali(), 'r1'));
+await check('mekan hesabı rehbere yazamaz', async () => {
+  await assertFails(setDoc(doc(cafe(), 'venues/v1'), venue));
 });
-await check('başkasının rezervasyonu iptal edilemez', async () => {
-  await seed();
-  await book(ali(), 'ali', 'r1');
-  await assertFails(cancel(veli(), 'r1'));
+await check('yönetici rehberi yazar ve gizleyebilir', async () => {
+  await assertSucceeds(setDoc(doc(admin(), 'venues/v1'), venue));
+  await assertSucceeds(updateDoc(doc(admin(), 'venues/v1'), { hidden: true }));
+});
+await check('e-postası doğrulanmamış "yönetici" yazamaz', async () => {
+  await assertFails(setDoc(doc(impostor(), 'venues/v1'), venue));
 });
 
-console.log('Mekan ve gizlilik:');
-await check('mekan "gelmedi" işaretleyebilir', async () => {
-  await seed();
-  await book(ali(), 'ali', 'r1');
-  await assertSucceeds(updateDoc(doc(cafe(), 'reservations/r1'), { status: 'noshow' }));
+console.log('Başvurular:');
+await check('giriş yapmadan başvuru bırakılabilir', async () => {
+  await assertSucceeds(addDoc(collection(anon(), 'leads'), lead()));
 });
-await check('taraftar kendini "geldi" işaretleyemez', async () => {
-  await seed();
-  await book(ali(), 'ali', 'r1');
-  await assertFails(updateDoc(doc(ali(), 'reservations/r1'), { status: 'arrived' }));
+await check('rehberdeki mekan için başvuru bırakılabilir', async () => {
+  await assertSucceeds(addDoc(collection(anon(), 'leads'), lead({ venueId: 'ank-alerta-pub' })));
 });
-await check('başka taraftar rezervasyonu (telefonu) okuyamaz', async () => {
-  await seed();
-  await book(ali(), 'ali', 'r1');
-  await assertFails(getDoc(doc(veli(), 'reservations/r1')));
+await check('eksik telefonlu başvuru reddedilir', async () => {
+  await assertFails(addDoc(collection(anon(), 'leads'), lead({ phone: '123' })));
 });
-await check('taraftar kendi rezervasyonunu okuyabilir', async () => {
-  await seed();
-  await book(ali(), 'ali', 'r1');
-  await assertSucceeds(getDoc(doc(ali(), 'reservations/r1')));
+await check('listede olmayan şehir reddedilir', async () => {
+  await assertFails(addDoc(collection(anon(), 'leads'), lead({ city: 'trabzon' })));
+});
+await check('fazladan alan eklenemez', async () => {
+  await assertFails(addDoc(collection(anon(), 'leads'), lead({ admin: true })));
+});
+await check('tarih istemciden gelemez', async () => {
+  await assertFails(addDoc(collection(anon(), 'leads'), lead({ createdAt: Timestamp.now() })));
+});
+await check('başvuruları sadece yönetici okur ve siler', async () => {
+  await seedDoc('leads/l1', { ...lead(), createdAt: Timestamp.now() });
+  await assertFails(getDoc(doc(anon(), 'leads/l1')));
+  await assertFails(getDoc(doc(cafe(), 'leads/l1')));
+  await assertSucceeds(getDoc(doc(admin(), 'leads/l1')));
+  await assertSucceeds(deleteDoc(doc(admin(), 'leads/l1')));
 });
 
 await env.cleanup();

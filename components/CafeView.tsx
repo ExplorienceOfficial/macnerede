@@ -3,14 +3,15 @@
 import Link from 'next/link';
 import { AnimatePresence, motion } from 'motion/react';
 import { useEffect, useState } from 'react';
-import { ChevronLeft, ChevronRight, Navigation, Phone, Star, Ticket, Volume2, VolumeX, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, MessageCircle, Navigation, Phone, Star, Volume2, VolumeX, X } from 'lucide-react';
 import Crest from './Crest';
 import CafeMap from './CafeMap';
-import ReserveSheet from './ReserveSheet';
+import SeatSheet from './SeatSheet';
 import { FanBadge, KindIcon } from './bits';
 import { TvIllustration } from './art';
 import { getCafe, listCafeBroadcasts, listPhotos } from '@/lib/db';
 import { directionsLink, formatPhone, telLink, tl } from '@/lib/hooks';
+import { hasWhatsApp } from '@/lib/venues';
 import { cityById, districtName } from '@/lib/places';
 import { team } from '@/lib/teams';
 import type { Broadcast, Cafe, CafePhoto } from '@/lib/types';
@@ -53,6 +54,7 @@ export default function CafeView({ id, matches }: { id: string; matches: MatchIn
 
   const shows = matches.map((m) => ({ m, b: bcs.find((b) => b.matchId === m.id) })).filter((x): x is { m: MatchInfo; b: Broadcast } => !!x.b);
   const reservingRow = shows.find((s) => s.m.id === reserving);
+  const wa = hasWhatsApp(cafe.phone);
 
   return (
     <div className="container">
@@ -89,7 +91,7 @@ export default function CafeView({ id, matches }: { id: string; matches: MatchIn
             <div>
               <dt>Ortam</dt>
               <dd>
-                {[cafe.features.alcohol ? 'Alkol var' : 'Alkolsüz', cafe.features.hookah && 'Nargile', cafe.features.garden && 'Bahçe', cafe.features.bigScreen && 'Dev ekran']
+                {[cafe.features.alcohol ? 'Alkol var' : 'Alkolsüz', cafe.features.hookah && 'Nargile', cafe.features.garden && 'Açık alan', cafe.features.bigScreen && 'Dev ekran']
                   .filter(Boolean)
                   .join(' · ')}
               </dd>
@@ -125,10 +127,9 @@ export default function CafeView({ id, matches }: { id: string; matches: MatchIn
 
           <section className="card panel-card" style={{ marginTop: 20 }}>
             <h2>Bu hafta verdiği maçlar</h2>
-            <p>Yerini buradan da ayırtabilirsin.</p>
+            <p>{wa ? 'Yer sormak için maça dokun, mesaj WhatsApp’ta hazır gelsin.' : 'Yer ayırtmak için mekanı ara.'}</p>
             {shows.length === 0 && <p className="faint">Bu hafta için girilmiş maç yok.</p>}
             {shows.map(({ m, b }, i) => {
-              const left = b.seats - b.reserved;
               return (
                 <motion.div key={m.id} className="bc-row" initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.1 + i * 0.06 }}>
                   <div className="bc-head">
@@ -140,12 +141,19 @@ export default function CafeView({ id, matches }: { id: string; matches: MatchIn
                       </b>
                       <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
                         {m.day} {m.time ?? ''} · {b.sound ? <Volume2 size={13} /> : <VolumeX size={13} />}
-                        {b.entryFee ? ` Giriş ${tl(b.entryFee)}` : ' Girişsiz'} · {left > 0 ? `${left} yer` : 'dolu'}
+                        {b.entryFee ? ` Giriş ${tl(b.entryFee)}` : ' Girişsiz'}
+                        {b.reservationRequired && ' · önceden yer ayırt'}
                       </span>
                     </div>
-                    <button className="btn btn-primary btn-sm" disabled={left <= 0 || m.finished} onClick={() => setReserving(m.id)}>
-                      <Ticket size={15} /> Ayırt
-                    </button>
+                    {wa ? (
+                      <button className="btn btn-primary btn-sm" disabled={m.finished} onClick={() => setReserving(m.id)}>
+                        <MessageCircle size={15} /> Yer sor
+                      </button>
+                    ) : (
+                      <a className="btn btn-primary btn-sm" href={telLink(cafe.phone)}>
+                        <Phone size={15} /> Ara
+                      </a>
+                    )}
                   </div>
                 </motion.div>
               );
@@ -159,15 +167,7 @@ export default function CafeView({ id, matches }: { id: string; matches: MatchIn
       </AnimatePresence>
 
       <AnimatePresence>
-        {reservingRow && (
-          <ReserveSheet
-            cafe={cafe}
-            b={reservingRow.b}
-            match={reservingRow.m}
-            onClose={() => setReserving(null)}
-            onReserved={(n) => setBcs((all) => all.map((b) => (b.matchId === reservingRow.m.id ? { ...b, reserved: b.reserved + n } : b)))}
-          />
-        )}
+        {reservingRow && <SeatSheet place={cafe} match={reservingRow.m} onClose={() => setReserving(null)} />}
       </AnimatePresence>
     </div>
   );

@@ -54,7 +54,7 @@ export default function LoginForm() {
     >
       <LogoMark size={40} />
       <h1 style={{ marginTop: 14 }}>Mekan girişi</h1>
-      <p className="muted" style={{ margin: '6px 0 22px' }}>Maçlarını ve rezervasyonlarını yönet.</p>
+      <p className="muted" style={{ margin: '6px 0 22px' }}>Vereceğin maçları ve mekan bilgilerini yönet.</p>
 
       {demoMode && (
         <div className="demo-banner">

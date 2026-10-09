@@ -1,7 +1,6 @@
 'use client';
 
 import Link from 'next/link';
-import { UserRound } from 'lucide-react';
 import { LogoMark, ScarfStripe } from './art';
 import ThemeToggle from './ThemeToggle';
 import { useAccount } from '@/lib/hooks';
@@ -20,21 +19,12 @@ export default function Header() {
         <nav className="nav">
           <ThemeToggle />
           <Link href="/" className="link">Bu hafta</Link>
-          {account?.role === 'cafe' ? (
+          {account ? (
             <Link href="/panel" className="btn btn-soft btn-sm">Mekan paneli</Link>
-          ) : account?.role === 'customer' ? (
-            <>
-              <Link href="/kayit" className="link">Mekanını ekle</Link>
-              <Link href="/hesap" className="btn btn-soft btn-sm">
-                <UserRound size={15} /> {account.customer?.name.split(' ')[0] || 'Hesabım'}
-              </Link>
-            </>
           ) : (
             <>
-              <Link href="/kayit" className="link">Mekanını ekle</Link>
-              <Link href="/hesap" className="btn btn-primary btn-sm">
-                <UserRound size={15} /> Giriş yap
-              </Link>
+              <Link href="/giris" className="link">Mekan girişi</Link>
+              <Link href="/kayit" className="btn btn-primary btn-sm">Mekanını ekle</Link>
             </>
           )}
         </nav>
