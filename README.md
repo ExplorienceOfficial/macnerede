@@ -79,9 +79,9 @@ mekan kapağı) ortada gösterilir.
 
 - **Armalar** (`public/logos`) ve **turnuva logoları** (`public/comps`): Wikipedia / Wikimedia Commons. Kulüp ve turnuva logoları
   tescilli markadır; ticari kullanımda hukuki durumu kontrol et.
-- **Stadyum fotoğrafları** (`public/stadiums`): Wikimedia Commons, özgür lisanslı (CC BY / CC BY-SA / CC0). Fotoğrafçı ve lisans
-  her fotoğrafın üstünde gösterilir; kaynak bağlantıları `lib/teams.ts` → `stadiums`. Rizespor, Çorum ve Shakhtar için özgür
-  lisanslı fotoğraf bulunamadı, bu maçlarda saha çizgisi deseni görünür.
+- **Stadyum fotoğrafları** (`public/stadiums`): Wikimedia Commons ve Flickr, özgür lisanslı (CC BY / CC BY-SA / CC0). Fotoğrafçı
+  ve lisans her fotoğrafın üstünde gösterilir; kaynak bağlantıları `lib/teams.ts` → `stadiums`. Fikstürdeki her ev sahibinin
+  stadyumu var. Shakhtar 2026-27 Şampiyonlar Ligi iç saha maçlarını Londra'da (Stamford Bridge) oynuyor.
 
 ## Sıradaki adımlar
 

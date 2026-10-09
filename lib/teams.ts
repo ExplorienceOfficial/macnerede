@@ -78,6 +78,8 @@ for (const t of Object.values(teams)) t.logo = `/logos/${t.id}.${PNG_LOGOS.has(t
 
 export interface Stadium {
   name: string;
+  /** Fotoğrafın arka planda hangi kısmının görüneceği (CSS object-position) */
+  focus?: string;
   /** Stadyumun konumu (haritada fotoğraflı işaretçi için) */
   coords: [number, number];
   photo: string;
@@ -86,7 +88,7 @@ export interface Stadium {
   source: string;
 }
 
-/** Ev sahibi takımın stadyum fotoğrafı (Rizespor, Çorum ve Shakhtar için özgür lisanslı foto yok) — Wikimedia Commons, özgür lisanslı (künye gösterilmeli) */
+/** Ev sahibi takımın stadyum fotoğrafı — Wikimedia Commons / Flickr, özgür lisanslı (künye gösterilmeli) */
 export const stadiums: Record<string, Stadium> = {
   gs: { name: 'RAMS Park', coords: [41.10278, 28.99056], photo: '/stadiums/gs.jpg', credit: 'Antoloji', license: 'CC BY-SA 4.0', source: 'https://commons.wikimedia.org/wiki/File:Rams_Park_i%C3%A7_g%C3%B6r%C3%BCn%C3%BCm_2025.jpg' },
   fb: { name: 'Chobani Stadyumu', coords: [40.98778, 29.03694], photo: '/stadiums/fb.jpg', credit: 'Anl55400', license: 'CC BY-SA 4.0', source: 'https://commons.wikimedia.org/wiki/File:Sukrusaracoglu.jpg' },
@@ -121,6 +123,11 @@ Object.assign(stadiums, {
   hoffenheim: { name: 'PreZero Arena', coords: [49.23806, 8.8875], photo: '/stadiums/hoffenheim.jpg', credit: 'PreZero', license: 'CC BY-SA 4.0', source: 'https://commons.wikimedia.org/wiki/File:PreZero_Arena_wiki.jpg' },
   leverkusen: { name: 'BayArena', coords: [51.03833, 7.00222], photo: '/stadiums/leverkusen.jpg', credit: 'Arne Müseler', license: 'CC BY-SA 3.0 de', source: 'https://commons.wikimedia.org/wiki/File:Bayarena_Leverkusen_2020.jpg' },
   eyupspor: { name: 'Recep Tayyip Erdoğan Stadyumu', coords: [41.03278, 28.9725], photo: '/stadiums/kasimpasa.jpg', credit: 'Supermæn', license: 'CC BY-SA 3.0', source: 'https://commons.wikimedia.org/wiki/File:Kas%C4%B1mpa%C5%9Fa_Stadyumu.jpg' },
+  // Wikipedia'da olmayanlar: Flickr / Commons'tan, serbest lisanslı
+  rizespor: { name: 'Çaykur Didi Stadyumu', coords: [41.04202, 40.5733], photo: '/stadiums/rizespor.jpg', credit: 'DDohler', license: 'CC BY 2.0', source: 'https://www.flickr.com/photos/51614546@N00/5770631279' },
+  corum: { name: 'Çorum Şehir Stadyumu', coords: [40.53444, 34.92278], photo: '/stadiums/corum.jpg', focus: 'center bottom', credit: 'Pivox (kırpıldı)', license: 'CC BY-SA 4.0', source: 'https://commons.wikimedia.org/wiki/File:New_%C3%87orum_Stadium.jpg' },
+  // Shakhtar savaş nedeniyle 2026-27 Şampiyonlar Ligi iç saha maçlarını Londra'da oynuyor (kulüp duyurusu, 21.08.2026)
+  shakhtar: { name: 'Stamford Bridge, Londra', coords: [51.48167, -0.19111], photo: '/stadiums/shakhtar.jpg', credit: 'Arne Müseler', license: 'CC BY-SA 3.0 de', source: 'https://commons.wikimedia.org/wiki/File:London_Stamford_Bridge.jpg' },
 } satisfies Record<string, Stadium>);
 
 export const stadiumFor = (homeId: string): Stadium | null => stadiums[homeId] ?? null;

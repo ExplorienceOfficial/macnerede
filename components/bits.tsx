@@ -67,6 +67,7 @@ export function StadiumBackdrop({ homeId }: { homeId: string }) {
         className="stadium-photo"
         src={s.photo}
         alt=""
+        style={s.focus ? { objectPosition: s.focus } : undefined}
         initial={{ scale: 1.12 }}
         animate={{ scale: 1 }}
         transition={{ duration: 9, ease: 'easeOut' }}

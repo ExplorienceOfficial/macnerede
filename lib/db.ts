@@ -255,7 +255,11 @@ export type CodeCheck = { ok: true; days: number; plan: PlanId } | { ok: false; 
 
 /** "mac x7k2 9pqr" → "MAC-X7K2-9PQR" (yazarken tireleri kendisi koyar) */
 export function normalizeCode(raw: string) {
-  const c = raw.toUpperCase().replace(/[^A-Z0-9]/g, '').replace(/^MAC/, '').slice(0, 8);
+  const up = raw.toUpperCase();
+  // Yapıştırılan metnin içinden kodu ayıkla ("001  MAC-2FHU-DRDT" gibi satır numaralı kopyalar dahil)
+  const m = up.match(/MAC[^A-Z0-9]*([A-Z0-9]{4})[^A-Z0-9]*([A-Z0-9]{4})/);
+  if (m) return `MAC-${m[1]}-${m[2]}`;
+  const c = up.replace(/[^A-Z0-9]/g, '').replace(/^MAC/, '').slice(0, 8);
   if (!c) return '';
   return `MAC-${c.slice(0, 4)}${c.length > 4 ? '-' + c.slice(4) : ''}`;
 }

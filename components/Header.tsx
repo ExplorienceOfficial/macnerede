@@ -19,8 +19,8 @@ export default function Header() {
           <span>maç<b>nerede</b></span>
         </Link>
         <nav className="nav">
-          <Link href="/" className="link">Bu hafta</Link>
           <ThemeToggle />
+          <Link href="/" className="link">Bu hafta</Link>
           {session ? (
             <Link href="/panel" className="btn btn-soft btn-sm">Mekan paneli</Link>
           ) : (

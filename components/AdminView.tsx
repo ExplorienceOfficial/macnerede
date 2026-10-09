@@ -769,7 +769,18 @@ function CodesTab({ cafes }: { cafes: Cafe[] | null }) {
 
       <section className="card panel-card">
         <h2>Kod yükle</h2>
-        <p>kodlar.txt dosyasını seç. Firebase’de zaten olan kodlara dokunulmaz, kullanılmış kodlar sıfırlanmaz.</p>
+        <p>kodlar.txt dosyasını seç ya da kodları aşağıya yapıştır. Firebase’de zaten olan kodlara dokunulmaz, kullanılmış kodlar sıfırlanmaz.</p>
+        <textarea
+          className="input"
+          rows={3}
+          placeholder={'MAC-XXXX-XXXX\nMAC-XXXX-XXXX\n…'}
+          onChange={(e) => {
+            const found = [...new Set(e.target.value.toUpperCase().match(CODE_RE) ?? [])];
+            setPending(found);
+            setNotice(null);
+          }}
+          style={{ marginBottom: 10, fontFamily: 'ui-monospace, monospace' }}
+        />
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
           <button className="btn btn-ghost" onClick={() => fileRef.current?.click()}>
             <FileUp size={16} /> Dosya seç
