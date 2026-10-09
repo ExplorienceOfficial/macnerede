@@ -1,7 +1,8 @@
 'use client';
 
 import { AnimatePresence, motion } from 'motion/react';
-import { useEffect, useState } from 'react';
+import { MATCH_LENGTH_MS } from '@/lib/fixtures';
+import { useNow } from '@/lib/hooks';
 
 function Digit({ d }: { d: string }) {
   return (
@@ -35,19 +36,14 @@ function Unit({ value, label }: { value: number; label: string }) {
   );
 }
 
-export default function Countdown({ to, live }: { to: string; live?: boolean }) {
-  const [now, setNow] = useState<number | null>(null);
-  useEffect(() => {
-    setNow(Date.now());
-    const t = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(t);
-  }, []);
-
-  if (live) return <span className="badge badge-live">CANLI</span>;
+/** Başlamaya kalan süre; düdükten sonra "Oynanıyor", 2 saat sonra "Maç sona erdi" olur */
+export default function Countdown({ to }: { to: string }) {
+  const now = useNow(1000);
   if (now === null) return <div className="countdown" style={{ height: 52 }} />;
 
-  const diff = Math.max(0, new Date(to).getTime() - now);
-  if (diff === 0) return <span className="badge badge-live">BAŞLADI</span>;
+  const diff = new Date(to).getTime() - now;
+  if (diff <= -MATCH_LENGTH_MS) return <div className="countdown"><span className="badge badge-done">Maç sona erdi</span></div>;
+  if (diff <= 0) return <div className="countdown"><span className="badge badge-live">Oynanıyor</span></div>;
   const s = Math.floor(diff / 1000);
   const days = Math.floor(s / 86400);
   const hours = Math.floor((s % 86400) / 3600);

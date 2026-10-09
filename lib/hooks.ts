@@ -28,6 +28,17 @@ export function usePref<T extends string>(key: string, initial: T): [T, (v: T) =
   return [value, set];
 }
 
+/** Tarayıcı saati, `ms`de bir tazelenir; sunucu çiziminde ve ilk karede null (hidrasyon uyuşsun) */
+export function useNow(ms: number) {
+  const [now, setNow] = useState<number | null>(null);
+  useEffect(() => {
+    setNow(Date.now());
+    const t = setInterval(() => setNow(Date.now()), ms);
+    return () => clearInterval(t);
+  }, [ms]);
+  return now;
+}
+
 /** Hatırlanan şehir; listeden kalkmış bir şehir kayıtlıysa varsayılana döner */
 export function useCity(): [string, (v: string) => void] {
   const [city, setCity] = usePref<string>('mn.city', DEFAULT_CITY);

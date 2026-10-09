@@ -1,20 +1,12 @@
-import { notFound } from 'next/navigation';
-import type { Metadata } from 'next';
-import MatchView from '@/components/MatchView';
-import { decorate, findMatch } from '@/lib/fixtures';
-import { team } from '@/lib/teams';
+import { notFound, permanentRedirect } from 'next/navigation';
+import { findMatch, matchPath } from '@/lib/fixtures';
+import { DEFAULT_CITY, cityById } from '@/lib/places';
 
-type Params = Promise<{ id: string }>;
-
-export async function generateMetadata({ params }: { params: Params }): Promise<Metadata> {
-  const m = findMatch((await params).id);
-  return m ? { title: `${team(m.home).name} – ${team(m.away).name} nerede izlenir? — MaçNerede` } : {};
-}
-
-export default async function MatchPage({ params, searchParams }: { params: Params; searchParams: Promise<{ sehir?: string; semt?: string }> }) {
+/** Eski adres (/mac/261009-gs-kasimpasa?sehir=istanbul) → /istanbul/galatasaray-kasimpasa-maci */
+export default async function OldMatchPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ sehir?: string; semt?: string }> }) {
   const { id } = await params;
   const { sehir, semt } = await searchParams;
   const m = findMatch(id);
   if (!m) notFound();
-  return <MatchView match={decorate(m)} initialCity={sehir} initialDistrict={semt} />;
+  permanentRedirect(matchPath(m, sehir && cityById(sehir) ? sehir : DEFAULT_CITY, semt));
 }

@@ -7,7 +7,7 @@ import { ArrowRight, Check, MessageCircle } from 'lucide-react';
 import RegisterFlow from './RegisterFlow';
 import { LogoMark } from './art';
 import { createLead } from '@/lib/db';
-import { cities, cityById } from '@/lib/places';
+import { DEFAULT_CITY, cities, cityById } from '@/lib/places';
 import { bundledVenues } from '@/lib/venues';
 import { formatPhone } from '@/lib/hooks';
 
@@ -20,8 +20,8 @@ export default function JoinView({ weekMatchCount, venueId }: { weekMatchCount: 
   const venue = useMemo(() => bundledVenues.find((v) => v.id === venueId) ?? null, [venueId]);
   const [mode, setMode] = useState<'quick' | 'full'>('quick');
   const [name, setName] = useState(venue?.name ?? '');
-  const [city, setCity] = useState(venue?.city ?? 'istanbul');
-  const [district, setDistrict] = useState(venue?.district ?? cityById('istanbul')!.districts[0].id);
+  const [city, setCity] = useState(venue?.city ?? DEFAULT_CITY);
+  const [district, setDistrict] = useState(venue?.district ?? cityById(DEFAULT_CITY)!.districts[0].id);
   const [phone, setPhone] = useState(venue?.phone ? formatPhone(venue.phone) : '');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -131,6 +131,9 @@ export default function JoinView({ weekMatchCount, venueId }: { weekMatchCount: 
             <button className="btn btn-primary btn-lg btn-block" disabled={busy}>
               {busy ? 'Gönderiliyor…' : 'Başvur'}
             </button>
+            <p className="hint" style={{ marginTop: 10, textAlign: 'center' }}>
+              Başvurarak maçları yasal ticari yayın üyeliğiyle verdiğini beyan edersin.
+            </p>
             <div className="join-alt">
               <button type="button" className="link-btn" onClick={() => setMode('full')}>
                 Beklemeden profilimi kendim kurayım (5 adım)

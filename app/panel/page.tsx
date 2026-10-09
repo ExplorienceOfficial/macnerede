@@ -1,7 +1,7 @@
 import PanelView from '@/components/PanelView';
 import { currentWeek, decorate, weekLabel } from '@/lib/fixtures';
 
-export const metadata = { title: 'Mekan paneli — MaçNerede' };
+export const metadata = { title: 'Mekan paneli' };
 
 export default function PanelPage() {
   const now = new Date();

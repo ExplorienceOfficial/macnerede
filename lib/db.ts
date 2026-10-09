@@ -118,6 +118,8 @@ function authError(e: unknown): Error {
     'auth/operation-not-allowed': 'E-posta ile kayıt henüz açılmamış (Firebase → Authentication → E-posta/Şifre).',
     'auth/network-request-failed': 'Bağlantı kurulamadı, internetini kontrol et.',
     'auth/popup-blocked': POPUP_BLOCKED,
+    'auth/account-exists-with-different-credential': 'Bu e-postayla şifreli bir mekan hesabı var. E-posta ve şifrenle giriş yap.',
+    'auth/unauthorized-domain': 'Google girişi bu adreste açık değil (Firebase → Authentication → Authorized domains).',
     'permission-denied': 'Kayıt veritabanına yazılamadı. Firestore kuralları yüklenmemiş olabilir.',
   };
   if (code && !msg[code]) console.error('[firebase]', e);
@@ -325,11 +327,16 @@ export interface RegisterExtras {
   cover?: string | null;
 }
 
-export async function registerCafe(email: string, password: string, data: NewCafe, extras: RegisterExtras = {}): Promise<Cafe> {
-  if (password.length < 6) throw new Error('Şifre en az 6 karakter olmalı.');
+/** Hesap: e-posta + şifreyle yeni hesap, ya da 'google' = az önce Google ile girilmiş hesap (googleSignIn) */
+export type RegisterLogin = { email: string; password: string } | 'google';
+
+export async function registerCafe(login: RegisterLogin, data: NewCafe, extras: RegisterExtras = {}): Promise<Cafe> {
+  if (login !== 'google' && login.password.length < 6) throw new Error('Şifre en az 6 karakter olmalı.');
   const { code, photos = [], cover = null } = extras;
 
   if (demoMode) {
+    if (login === 'google') throw new Error('Demo modunda Google ile kayıt yok; e-posta ve şifreyle devam et.');
+    const { email, password } = login;
     await wait(700);
     const accounts = lsGet<{ email: string; pass: string; cafeId: string }[]>(K.acc, []);
     if (accounts.some((a) => a.email === email.toLowerCase())) throw new Error('Bu e-posta ile zaten bir mekan kayıtlı. Giriş yapmayı dene.');
@@ -356,13 +363,18 @@ export async function registerCafe(email: string, password: string, data: NewCaf
   }
 
   const { auth, db } = firebase();
-  let cred;
-  try {
-    cred = await createUserWithEmailAndPassword(auth, email, password);
-  } catch (e) {
-    throw authError(e);
+  let user;
+  if (login === 'google') {
+    user = auth.currentUser;
+    if (!user) throw new Error('Google oturumu kapanmış görünüyor. İlk adıma dönüp tekrar “Google ile devam et”e bas.');
+  } else {
+    try {
+      user = (await createUserWithEmailAndPassword(auth, login.email, login.password)).user;
+    } catch (e) {
+      throw authError(e);
+    }
   }
-  const uid = cred.user.uid;
+  const uid = user.uid;
   const ts = (v: string) => Timestamp.fromDate(new Date(v));
   let cafe: Cafe;
   try {
@@ -398,8 +410,9 @@ export async function registerCafe(email: string, password: string, data: NewCaf
       return result;
     });
   } catch (e) {
-    // Mekan kaydı yazılamadıysa hesabı geri al; yoksa aynı e-postayla tekrar denenemez
-    await cred.user.delete().catch(() => {});
+    // Mekan kaydı yazılamadıysa yeni açılan şifreli hesabı geri al; yoksa aynı e-postayla tekrar denenemez.
+    // Google hesabı silinmez: kullanıcı tekrar dener, aynı hesapla devam eder.
+    if (login !== 'google') await user.delete().catch(() => {});
     throw authError(e);
   }
   // Fotoğraflar ayrı belgeler; biri yüklenemezse kayıt yine tamamdır, panelden tekrar eklenebilir
@@ -425,6 +438,26 @@ export async function login(email: string, password: string): Promise<string> {
     const cred = await signInWithEmailAndPassword(firebase().auth, email, password);
     return cred.user.uid;
   } catch (e) {
+    throw authError(e);
+  }
+}
+
+/**
+ * Mekan sahibi Google ile girer (şifre derdi yok). null: pencere kapatıldı.
+ * hasCafe false ise hesap açıldı ama mekan kaydı yok: kayıt formu bu hesapla devam eder.
+ */
+export async function googleSignIn(): Promise<{ email: string; hasCafe: boolean } | null> {
+  if (demoMode) throw new Error('Demo modunda Google ile giriş yok; e-posta ve şifreyle devam et.');
+  const { auth, db } = firebase();
+  const provider = new GoogleAuthProvider();
+  provider.setCustomParameters({ prompt: 'select_account' });
+  try {
+    const { user } = await signInWithPopup(auth, provider);
+    const cafe = await getDoc(doc(db, 'cafes', user.uid));
+    return { email: user.email ?? '', hasCafe: cafe.exists() };
+  } catch (e) {
+    const code = (e as { code?: string })?.code;
+    if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') return null;
     throw authError(e);
   }
 }

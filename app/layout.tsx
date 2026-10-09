@@ -5,14 +5,18 @@ import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import Providers from '@/components/Providers';
 import { themeInitScript } from '@/lib/theme';
+import { SITE_NAME, SITE_URL } from '@/lib/site';
 
 const sans = Figtree({ subsets: ['latin', 'latin-ext'], weight: ['400', '500', '600', '700', '800', '900'], variable: '--font-sans' });
 
 export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
-  title: 'MaçNerede — Bu haftaki maçı hangi mekanda izlersin?',
-  description: 'Galatasaray, Fenerbahçe, Beşiktaş ve Trabzonspor maçlarını veren kafe ve pub’lar: İstanbul, Ankara, İzmir. Semtini seç, mekanı bul, yerini WhatsApp’tan ayırt.',
+  metadataBase: new URL(SITE_URL),
+  title: { default: `${SITE_NAME} — Maçı hangi mekanda izlersin?`, template: `%s — ${SITE_NAME}` },
+  description: 'Galatasaray, Fenerbahçe, Beşiktaş ve Trabzonspor maçlarını veren kafe ve pub’lar: Ankara, İstanbul, İzmir. Semtini seç, mekanı bul, yerini WhatsApp’tan ayırt.',
+  applicationName: SITE_NAME,
+  openGraph: { siteName: SITE_NAME, locale: 'tr_TR', type: 'website' },
 };
 
 export const viewport: Viewport = {

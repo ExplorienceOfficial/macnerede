@@ -1,4 +1,4 @@
-# MaçNerede
+# NeredeMaç (neredemac.com)
 
 Galatasaray, Fenerbahçe, Beşiktaş ve Trabzonspor maçlarını veren kafe/pub'ları gösteren site (İstanbul, Ankara, İzmir).
 Taraftar maçı ve semtini seçer, mekanı bulur, yerini WhatsApp'tan hazır mesajla ayırtır. İki tür mekan var:
@@ -21,11 +21,11 @@ klonlayıp çalıştırınca site doğrudan `macnerede-58592` projesine bağlan�
 
 | Yol | Ne |
 |---|---|
-| `/` | Bu haftanın maçları, takım/şehir seçimi, popüler semtler, sıradaki maç + geri sayım |
-| `/mac/[id]` | Maçı veren mekanlar: semt (`?semt=`), filtreler (ses, dev ekran, açık alan, girişsiz, alkol, nargile, ₺/₺₺/₺₺₺), harita, WhatsApp ile yer ayırtma |
+| `/` | Bu haftanın maçları, gün sekmeleri (`?gun=bugun\|yarin\|haftasonu`), takım/şehir seçimi (varsayılan Ankara), popüler semtler, sıradaki maç + geri sayım (başlayınca "Oynanıyor", bitince "Maç sona erdi") |
+| `/[sehir]/[ev]-[deplasman]-maci` | Maçı veren mekanlar, ör. `/ankara/galatasaray-kasimpasa-maci`: semt (`?semt=`), filtreler (ses, dev ekran, açık alan, girişsiz, alkol, nargile, ₺/₺₺/₺₺₺), harita, WhatsApp ile yer ayırtma. Eski `/mac/[id]?sehir=` adresleri buraya kalıcı yönlenir |
 | `/kafe/[id]` | Anlaşmalı mekan detayı, telefon/ara, fotoğraf galerisi, bu hafta verdiği maçlar |
 | `/kayit` | **Kısa başvuru** (ad, şehir/semt, WhatsApp — şimdilik ücretsiz); isteyen 5 adımlı formla profilini kendisi kurar. `?mekan=<rehber id>` rehberdeki mekanın bilgilerini doldurur |
-| `/giris` · `/panel` | Mekan girişi (şifremi unuttum dahil) ve paneli: maç aç/kapa, fotoğraflar, mekan bilgileri, üyelik |
+| `/giris` · `/panel` | Mekan girişi (Google ya da e-posta/şifre, şifremi unuttum dahil) ve paneli: maç aç/kapa, fotoğraflar, mekan bilgileri, üyelik |
 | `/yonetim` | **Admin paneli** (Google ile giriş): bu haftanın maçları, tüm mekanlar + üyelik işlemleri, başvurular, rehber (Firebase'e yükle, gizle/göster), mekan adına hesap açma, ödemeler, aktivasyon kodları |
 
 ## Fikstür
@@ -38,7 +38,7 @@ haftanın maçları bittiyse bir sonraki haftayı açar. Süper Lig 7–16. haft
 
 Proje: `macnerede-58592`.
 
-1. **Authentication** → Sign-in method → **Email/Password** (mekanlar) ve **Google** (yönetim sayfası) açık olmalı
+1. **Authentication** → Sign-in method → **Email/Password** ve **Google** açık olmalı (mekanlar ikisiyle de kayıt olur; yönetim sayfası Google ile)
 2. **Firestore** kuralları: `firebase deploy --only firestore:rules --account <proje sahibinin e-postası>`
 3. Canlıya alırken alan adını Authentication → Settings → Authorized domains'e ekle
 
@@ -110,8 +110,9 @@ Sağ üstteki düğmeyle açık/koyu tema; seçim hatırlanır, seçim yoksa sis
 ## Google Maps
 
 `.env.local`'a `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` (Maps JavaScript API) ve isteğe bağlı `NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID` ekle.
-Anahtar yokken Google Maps gömülü görünümü kullanılır; Google'ın iğnesi yerine kendi işaretçimiz (stadyum fotoğrafı ya da
-mekan kapağı) ortada gösterilir.
+Anahtar yokken (şu an canlıda da böyle) Google Maps gömülü görünümü kullanılır: harita bütün mekanları kapsayacak merkez ve
+yakınlaştırmayla açılır, işaretçilerimiz Web Mercator hesabıyla üstüne yerleştirilir (tıklanınca mekan seçilir). Harita stadı
+göstermez; taraftar stadı değil, yakınındaki mekanı arıyor.
 
 ## Görseller
 

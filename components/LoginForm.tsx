@@ -3,10 +3,10 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { AnimatePresence, motion } from 'motion/react';
-import { useState } from 'react';
-import { Info } from 'lucide-react';
-import { LogoMark } from './art';
-import { demoMode, login, resetPassword } from '@/lib/db';
+import { useEffect, useState } from 'react';
+import { Info, Loader2 } from 'lucide-react';
+import { GoogleMark, LogoMark } from './art';
+import { demoMode, googleSignIn, login, prepareGoogle, resetPassword } from '@/lib/db';
 
 export default function LoginForm() {
   const router = useRouter();
@@ -16,6 +16,30 @@ export default function LoginForm() {
   const [busy, setBusy] = useState(false);
   const [shake, setShake] = useState(0);
   const [notice, setNotice] = useState<string | null>(null);
+  const [googleBusy, setGoogleBusy] = useState(false);
+  /** Google ile girildi ama bu hesaba bağlı mekan yok */
+  const [noCafe, setNoCafe] = useState<string | null>(null);
+
+  useEffect(() => {
+    prepareGoogle();
+  }, []);
+
+  async function withGoogle() {
+    setError(null);
+    setNotice(null);
+    setNoCafe(null);
+    setGoogleBusy(true);
+    try {
+      const r = await googleSignIn();
+      if (!r) return;
+      if (r.hasCafe) return router.push('/panel');
+      setNoCafe(r.email);
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setGoogleBusy(false);
+    }
+  }
 
   async function forgot() {
     setError(null);
@@ -61,6 +85,28 @@ export default function LoginForm() {
           <Info size={18} style={{ flex: 'none', marginTop: 1 }} />
           <span>Demo modu: Önce “Mekanını ekle” ile bu tarayıcıda bir hesap oluştur, sonra buradan gir.</span>
         </div>
+      )}
+
+      {!demoMode && (
+        <>
+          <button type="button" className="btn btn-google btn-lg btn-block" onClick={withGoogle} disabled={googleBusy}>
+            {googleBusy ? <Loader2 size={18} className="spin" /> : <GoogleMark size={20} />} Google ile giriş yap
+          </button>
+          {noCafe && (
+            <div className="trial-note" style={{ marginBottom: 0 }}>
+              <Info size={18} style={{ flex: 'none', marginTop: 2 }} />
+              <span>
+                <b>{noCafe}</b> hesabına bağlı bir mekan yok.{' '}
+                <Link href="/kayit" style={{ color: 'var(--accent)', fontWeight: 600 }}>
+                  Mekanını ekle
+                </Link>
+              </span>
+            </div>
+          )}
+          <div className="or-sep">
+            <span>ya da e-posta ve şifreyle</span>
+          </div>
+        </>
       )}
 
       <div className="field">

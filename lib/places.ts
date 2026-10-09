@@ -14,23 +14,6 @@ export interface City {
 
 export const cities: City[] = [
   {
-    id: 'istanbul',
-    name: 'İstanbul',
-    center: [41.02, 29.0],
-    districts: [
-      { id: 'kadikoy', name: 'Kadıköy', center: [40.99, 29.027] },
-      { id: 'bagdat', name: 'Bağdat Caddesi', center: [40.964, 29.074] },
-      { id: 'besiktas', name: 'Beşiktaş', center: [41.043, 29.006] },
-      { id: 'beyoglu', name: 'Beyoğlu / Taksim', center: [41.034, 28.978] },
-      { id: 'sisli', name: 'Şişli / Mecidiyeköy', center: [41.064, 28.995] },
-      { id: 'uskudar', name: 'Üsküdar', center: [41.026, 29.015] },
-      { id: 'atasehir', name: 'Ataşehir', center: [40.993, 29.11] },
-      { id: 'bakirkoy', name: 'Bakırköy', center: [40.98, 28.87] },
-      { id: 'maltepe', name: 'Maltepe', center: [40.935, 29.13] },
-      { id: 'sariyer', name: 'Sarıyer', center: [41.166, 29.05] },
-    ],
-  },
-  {
     id: 'ankara',
     name: 'Ankara',
     center: [39.92, 32.85],
@@ -51,6 +34,23 @@ export const cities: City[] = [
     ],
   },
   {
+    id: 'istanbul',
+    name: 'İstanbul',
+    center: [41.02, 29.0],
+    districts: [
+      { id: 'kadikoy', name: 'Kadıköy', center: [40.99, 29.027] },
+      { id: 'bagdat', name: 'Bağdat Caddesi', center: [40.964, 29.074] },
+      { id: 'besiktas', name: 'Beşiktaş', center: [41.043, 29.006] },
+      { id: 'beyoglu', name: 'Beyoğlu / Taksim', center: [41.034, 28.978] },
+      { id: 'sisli', name: 'Şişli / Mecidiyeköy', center: [41.064, 28.995] },
+      { id: 'uskudar', name: 'Üsküdar', center: [41.026, 29.015] },
+      { id: 'atasehir', name: 'Ataşehir', center: [40.993, 29.11] },
+      { id: 'bakirkoy', name: 'Bakırköy', center: [40.98, 28.87] },
+      { id: 'maltepe', name: 'Maltepe', center: [40.935, 29.13] },
+      { id: 'sariyer', name: 'Sarıyer', center: [41.166, 29.05] },
+    ],
+  },
+  {
     id: 'izmir',
     name: 'İzmir',
     center: [38.43, 27.14],
@@ -68,7 +68,8 @@ export const cities: City[] = [
   },
 ];
 
-export const DEFAULT_CITY = 'istanbul';
+/** Pilot şehir: ilk girişte Ankara açılır (seçilen şehir tarayıcıda hatırlanır) */
+export const DEFAULT_CITY = 'ankara';
 export const cityById = (id: string) => cities.find((c) => c.id === id);
 export const districtById = (cityId: string, id: string) => cityById(cityId)?.districts.find((d) => d.id === id);
 export const districtName = (cityId: string, id: string) => districtById(cityId, id)?.name ?? id;

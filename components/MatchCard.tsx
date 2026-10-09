@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { motion } from 'motion/react';
 import { ChevronRight, MapPin } from 'lucide-react';
 import Crest from './Crest';
-import type { MatchInfo } from '@/lib/fixtures';
+import { matchPath, type MatchInfo } from '@/lib/fixtures';
 import { CompBadge } from './bits';
 import { team } from '@/lib/teams';
 
@@ -32,7 +32,7 @@ export default function MatchCard({ m, count, city, index }: { m: MatchInfo; cou
       exit={{ opacity: 0, scale: 0.97 }}
       whileHover="hover"
     >
-      <Link href={`/mac/${m.id}?sehir=${city}`} className={`card match-card${m.finished ? ' done' : ''}`}>
+      <Link href={matchPath(m, city)} className={`card match-card${m.finished ? ' done' : ''}`}>
         <span className="colors" aria-hidden>
           <i style={{ background: home.colors[0] }} />
           <i style={{ background: away.colors[0] }} />
@@ -61,7 +61,7 @@ export default function MatchCard({ m, count, city, index }: { m: MatchInfo; cou
           </div>
         </div>
         <div className="mc-side">
-          {m.live ? <span className="badge badge-live">CANLI</span> : <span className="mc-time">{m.time ?? 'Saat ?'}</span>}
+          {m.live ? <span className="badge badge-live">Oynanıyor</span> : <span className="mc-time">{m.time ?? 'Saat ?'}</span>}
           {m.finished ? (
             <span className="faint" style={{ fontSize: 13.5 }}>Oynandı</span>
           ) : (

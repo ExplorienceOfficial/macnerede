@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { AnimatePresence, LayoutGroup, motion } from 'motion/react';
 import { useMemo, useState } from 'react';
-import { ChevronLeft, List, Map as MapIcon } from 'lucide-react';
+import { ArrowRight, ChevronLeft, List, Map as MapIcon } from 'lucide-react';
 import Crest from './Crest';
 import Countdown from './Countdown';
 import CafeCard from './CafeCard';
@@ -12,10 +12,10 @@ import CafeMap from './CafeMap';
 import SeatSheet, { type SeatPlace } from './SeatSheet';
 import { CityPicker, CompBadge, StadiumBackdrop } from './bits';
 import { PitchLines, TvIllustration } from './art';
-import type { MatchInfo } from '@/lib/fixtures';
-import { useCity, useListings } from '@/lib/hooks';
-import { cityById, distanceKm, locative } from '@/lib/places';
-import { bigTeamsIn, type Match } from '@/lib/fixtures';
+import { bigTeamsIn, matchPath, withStatus, type Match, type MatchInfo } from '@/lib/fixtures';
+import { useCity, useListings, useNow } from '@/lib/hooks';
+import { cityById, locative } from '@/lib/places';
+import { SITE_NAME } from '@/lib/site';
 import { stadiumFor, team, type BigTeam } from '@/lib/teams';
 import { priceLevel, type Broadcast, type Cafe, type Venue } from '@/lib/types';
 
@@ -25,11 +25,21 @@ const PARTNER_ONLY: FilterId[] = ['sound', 'free'];
 
 type Row = { type: 'cafe'; id: string; c: Cafe; b: Broadcast } | { type: 'venue'; id: string; v: Venue };
 
-export default function MatchView({ match, initialCity, initialDistrict }: { match: MatchInfo; initialCity?: string; initialDistrict?: string }) {
-  const [storedCity, setStoredCity] = useCity();
-  const [cityOverride, setCityOverride] = useState(initialCity && cityById(initialCity) ? initialCity : null);
-  const city = cityOverride ?? storedCity;
+interface Props {
+  match: MatchInfo;
+  /** Adresteki şehir (/ankara/...) */
+  city: string;
+  initialDistrict?: string;
+  /** Maçtaki büyük takımın sıradaki maçı: bu maç oynandıysa ona yönlendiririz */
+  nextMatch?: MatchInfo;
+}
+
+export default function MatchView({ match, city: initialCity, initialDistrict, nextMatch }: Props) {
+  const [, storeCity] = useCity();
+  const [city, setCityState] = useState(initialCity);
   const cityInfo = cityById(city)!;
+  const now = useNow(30_000);
+  const finished = now === null ? match.finished : withStatus(match, now).finished;
 
   const [district, setDistrict] = useState(initialDistrict && cityInfo.districts.some((d) => d.id === initialDistrict) ? initialDistrict : 'all');
   const [filters, setFilters] = useState<Set<FilterId>>(new Set());
@@ -38,11 +48,14 @@ export default function MatchView({ match, initialCity, initialDistrict }: { mat
   const [view, setView] = useState<'list' | 'map'>('list');
   const [seating, setSeating] = useState<string | null>(null);
 
+  // Şehir adresin parçası: sayfayı yeniden yüklemeden adresi de değiştir (paylaşılan bağlantı doğru şehri açsın)
   const setCity = (c: string) => {
-    setCityOverride(null);
-    setStoredCity(c);
+    setCityState(c);
+    storeCity(c);
     setDistrict('all');
     setActive(null);
+    window.history.replaceState(null, '', matchPath(match, c));
+    document.title = `${team(match.home).name} – ${team(match.away).name} maçı ${locative(cityById(c)!.name)} nerede izlenir? — ${SITE_NAME}`;
   };
 
   const { cafes, broadcasts, venues, loading, error } = useListings([match.id]);
@@ -126,9 +139,6 @@ export default function MatchView({ match, initialCity, initialDistrict }: { mat
     document.getElementById(`cafe-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
 
-  // Maçın stadyumu seçili şehirdeyse haritada fotoğraflı işaretçiyle gösterilir
-  const homeStadium = stadiumFor(match.home);
-  const mapStadium = homeStadium && distanceKm(homeStadium.coords, cityInfo.center) < 60 ? { ...homeStadium, homeId: match.home } : null;
   const home = team(match.home);
   const away = team(match.away);
   const seatRow = seating ? inCity.find((r) => r.id === seating) : null;
@@ -185,8 +195,15 @@ export default function MatchView({ match, initialCity, initialDistrict }: { mat
             {away.name}
           </motion.div>
         </div>
-        {match.time && !match.finished && <Countdown to={match.kickoffISO} live={match.live} />}
-        {match.finished && <p className="faint" style={{ textAlign: 'center', position: 'relative' }}>Bu maç oynandı.</p>}
+        {match.time ? <Countdown to={match.kickoffISO} /> : finished && <p className="faint" style={{ textAlign: 'center', position: 'relative' }}>Bu maç oynandı.</p>}
+        {finished && nextMatch && (
+          <div className="next-match-link">
+            <Link href={matchPath(nextMatch, city)} className="btn btn-primary btn-sm">
+              Sıradaki maç: {team(nextMatch.home).name} – {team(nextMatch.away).name} · {nextMatch.day}
+              {nextMatch.time && ` ${nextMatch.time}`} <ArrowRight size={15} />
+            </Link>
+          </div>
+        )}
       </motion.section>
 
       <div className="toolbar">
@@ -286,7 +303,6 @@ export default function MatchView({ match, initialCity, initialDistrict }: { mat
                 ? { id: r.id, name: p.name, lat: p.lat, lng: p.lng, kind: p.kind, pro: r.c.plan === 'pro', fanOf: r.c.fanOf, cover: r.c.cover }
                 : { id: r.id, name: p.name, lat: p.lat, lng: p.lng, kind: p.kind, pro: false, fanOf: null, guide: true };
             })}
-            stadium={mapStadium}
             activeId={active}
             onSelect={(id) => {
               setView('list');

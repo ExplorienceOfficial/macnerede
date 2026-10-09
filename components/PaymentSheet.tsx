@@ -121,7 +121,7 @@ export default function PaymentSheet({ cafe, onClose, onPaid }: { cafe: Cafe; on
                 <CreditCard size={18} /> {state === 'busy' ? 'Hazırlanıyor…' : state === 'redirect' ? 'Ödeme sayfasına gidiliyor…' : `${tl(total)} öde`}
               </button>
               <p className="legal" style={{ display: 'flex', gap: 6, alignItems: 'center', justifyContent: 'center' }}>
-                <Lock size={13} /> Kart bilgilerin iyzico’nun güvenli sayfasında girilir; MaçNerede kartını görmez.
+                <Lock size={13} /> Kart bilgilerin iyzico’nun güvenli sayfasında girilir; NeredeMaç kartını görmez.
               </p>
             </motion.div>
           )}

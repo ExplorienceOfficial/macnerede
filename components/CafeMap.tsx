@@ -2,12 +2,12 @@
 
 import { APIProvider, AdvancedMarker, Map, useMap } from '@vis.gl/react-google-maps';
 import { AnimatePresence, motion } from 'motion/react';
-import { useEffect } from 'react';
-import { ExternalLink } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { ExternalLink, Map as MapIcon } from 'lucide-react';
 import Crest from './Crest';
 import { KindIcon } from './bits';
 import type { CafeKind } from '@/lib/types';
-import type { BigTeam, Stadium } from '@/lib/teams';
+import type { BigTeam } from '@/lib/teams';
 import { useTheme } from '@/lib/theme';
 
 const KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? '';
@@ -27,24 +27,18 @@ export interface MapCafe {
   guide?: boolean;
 }
 
-/** Haritada gösterilecek stadyum: fotoğraflı işaretçi */
-export interface MapStadium extends Stadium {
-  homeId: string;
-}
-
 interface Props {
   cafes: MapCafe[];
   activeId?: string | null;
   onSelect?: (id: string) => void;
   center: [number, number];
   zoom?: number;
-  stadium?: MapStadium | null;
 }
 
 export default function CafeMap(props: Props) {
   const theme = useTheme();
   if (!mapsEnabled) return <EmbedMap {...props} />;
-  const { cafes, activeId, onSelect, center, zoom = 13, stadium } = props;
+  const { cafes, activeId, onSelect, center, zoom = 13 } = props;
   return (
     <APIProvider apiKey={KEY} language="tr" region="TR">
       <Map
@@ -58,29 +52,25 @@ export default function CafeMap(props: Props) {
         colorScheme={theme === 'dark' ? 'DARK' : 'LIGHT'}
         style={{ width: '100%', height: '100%' }}
       >
-        {stadium && (
-          <AdvancedMarker position={{ lat: stadium.coords[0], lng: stadium.coords[1] }} zIndex={900} title={stadium.name}>
-            <StadiumPin s={stadium} />
-          </AdvancedMarker>
-        )}
         {cafes.map((c, i) => (
           <AdvancedMarker key={c.id} position={{ lat: c.lat, lng: c.lng }} onClick={() => onSelect?.(c.id)} zIndex={c.id === activeId ? 1000 : c.pro ? 500 : i} title={c.name}>
             <CafePin c={c} active={c.id === activeId} delay={Math.min(i, 12) * 0.05} />
           </AdvancedMarker>
         ))}
-        <FitBounds cafes={cafes} activeId={activeId ?? null} stadium={stadium ?? null} />
+        <FitBounds cafes={cafes} activeId={activeId ?? null} />
       </Map>
     </APIProvider>
   );
 }
 
-function FitBounds({ cafes, activeId, stadium }: { cafes: MapCafe[]; activeId: string | null; stadium: MapStadium | null }) {
+/** Harita mekanların hepsini kapsayacak şekilde açılır (taraftar stadı değil, yakınındaki mekanı arıyor) */
+function FitBounds({ cafes, activeId }: { cafes: MapCafe[]; activeId: string | null }) {
   const map = useMap();
-  const key = cafes.map((c) => c.id).join(',') + (stadium?.homeId ?? '');
+  const key = cafes.map((c) => c.id).join(',');
 
   useEffect(() => {
     if (!map) return;
-    const pts = [...cafes.map((c) => ({ lat: c.lat, lng: c.lng })), ...(stadium ? [{ lat: stadium.coords[0], lng: stadium.coords[1] }] : [])];
+    const pts = cafes.map((c) => ({ lat: c.lat, lng: c.lng }));
     if (pts.length === 0) return;
     if (pts.length === 1) {
       map.setCenter(pts[0]);
@@ -100,24 +90,6 @@ function FitBounds({ cafes, activeId, stadium }: { cafes: MapCafe[]; activeId: s
   }, [map, activeId]);
 
   return null;
-}
-
-/** Stadyum işaretçisi: yuvarlak fotoğraf, ev sahibi arması, nabız halkası ve isim etiketi */
-function StadiumPin({ s }: { s: MapStadium }) {
-  return (
-    <motion.div className="pin-stadium" initial={{ y: -30, opacity: 0, scale: 0.6 }} animate={{ y: 0, opacity: 1, scale: 1 }} transition={{ type: 'spring', stiffness: 380, damping: 14 }}>
-      <span className="pulse" aria-hidden />
-      <span className="photo">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={s.photo} alt="" />
-      </span>
-      <span className="crest">
-        <Crest id={s.homeId} size={22} />
-      </span>
-      <span className="tail" aria-hidden />
-      <span className="label">{s.name}</span>
-    </motion.div>
-  );
 }
 
 /** Mekan işaretçisi: kapak fotoğrafı varsa o, yoksa taraftar arması ya da mekan türü ikonu */
@@ -142,36 +114,95 @@ function CafePin({ c, active, delay = 0 }: { c: MapCafe; active: boolean; delay?
   );
 }
 
+// Web Mercator: Google haritasında yakınlaştırma z'de dünya 256·2^z piksel genişliğinde
+const TILE = 256;
+const toX = (lng: number) => (lng + 180) / 360;
+const toY = (lat: number) => {
+  const s = Math.sin((lat * Math.PI) / 180);
+  return 0.5 - Math.log((1 + s) / (1 - s)) / (4 * Math.PI);
+};
+const toLng = (x: number) => x * 360 - 180;
+const toLat = (y: number) => (Math.atan(Math.sinh(Math.PI * (1 - 2 * y))) * 180) / Math.PI;
+
 /**
- * API anahtarı yokken: Google Maps gömülü görünümü (iğnesiz) + ortasına kendi işaretçimiz.
- * Harita sabit önizleme; kaydırınca işaretçi kaymasın diye etkileşim kapalı, "Google Maps'te aç" ile açılır.
+ * API anahtarı yokken: Google Maps gömülü görünümü (iğnesiz) + üstüne kendi işaretçilerimiz.
+ * Gömülü harita verilen merkez ve yakınlaştırmayla açıldığı için her mekanın ekrandaki yeri hesaplanabiliyor;
+ * kaydırınca işaretçiler kaymasın diye harita etkileşimsiz, "Google Maps'te aç" ile açılır.
  */
-function EmbedMap({ cafes, activeId, center, stadium }: Props) {
-  const c = cafes.find((x) => x.id === activeId) ?? (cafes.length === 1 ? cafes[0] : null);
-  const focus = c ? [c.lat, c.lng] : stadium ? stadium.coords : center;
-  const zoom = c ? 16 : stadium ? 15 : 13;
-  const src = `https://maps.google.com/maps?ll=${focus[0]},${focus[1]}&z=${zoom}&hl=tr&t=m&output=embed`;
-  const pinKey = c ? `c-${c.id}` : stadium ? `s-${stadium.homeId}` : 'none';
+function EmbedMap({ cafes, activeId, onSelect, center, zoom = 13 }: Props) {
+  const box = useRef<HTMLDivElement>(null);
+  const [size, setSize] = useState<{ w: number; h: number } | null>(null);
+  // Bir mekan seçiliyken "Tüm mekanlar" ile genel görünüme dönülebilir
+  const [overview, setOverview] = useState(false);
+  useEffect(() => setOverview(false), [activeId]);
+
+  useEffect(() => {
+    const el = box.current;
+    if (!el) return;
+    // Mobilde liste görünümündeyken harita gizli (0×0): o sırada gömülü haritayı hiç yükleme
+    const ro = new ResizeObserver(([e]) => {
+      const w = Math.round(e.contentRect.width);
+      const h = Math.round(e.contentRect.height);
+      setSize(w > 0 && h > 0 ? { w, h } : null);
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  const active = overview ? null : cafes.find((x) => x.id === activeId) ?? null;
+  // Görünüm: seçili mekan, yoksa bütün mekanları kapsayan en yakın tam sayı yakınlaştırma
+  let view = { x: toX(center[1]), y: toY(center[0]), z: zoom };
+  if (active) view = { x: toX(active.lng), y: toY(active.lat), z: 16 };
+  else if (cafes.length > 0 && size) {
+    const xs = cafes.map((c) => toX(c.lng));
+    const ys = cafes.map((c) => toY(c.lat));
+    const [x0, x1, y0, y1] = [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)];
+    let z = 16;
+    while (z > 4 && ((x1 - x0) * TILE * 2 ** z > size.w - 80 || (y1 - y0) * TILE * 2 ** z > size.h - 110)) z--;
+    // İğneler yukarı doğru uzandığı için alanı biraz aşağı kaydır
+    view = { x: (x0 + x1) / 2, y: (y0 + y1) / 2 - 15 / (TILE * 2 ** z), z };
+  }
+  const lat = toLat(view.y).toFixed(6);
+  const lng = toLng(view.x).toFixed(6);
+  const src = `https://maps.google.com/maps?ll=${lat},${lng}&z=${view.z}&hl=tr&t=m&output=embed`;
+  const scale = TILE * 2 ** view.z;
 
   return (
-    <div className="embed-map">
-      <AnimatePresence mode="wait">
-        <motion.iframe key={src} title="Google Haritalar" src={src} loading="lazy" tabIndex={-1} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.25 }} />
-      </AnimatePresence>
-      <div className="embed-pin">
+    <div className="embed-map" ref={box}>
+      {size && (
         <AnimatePresence mode="wait">
-          {c ? <CafePin key={pinKey} c={c} active /> : stadium ? <StadiumPin key={pinKey} s={stadium} /> : null}
+          <motion.iframe key={src} title="Google Haritalar" src={src} loading="lazy" tabIndex={-1} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.25 }} />
         </AnimatePresence>
-      </div>
-      <a className="open-maps" href={`https://www.google.com/maps/search/?api=1&query=${focus[0]},${focus[1]}`} target="_blank" rel="noopener noreferrer">
-        <ExternalLink size={14} /> Google Maps’te aç
-      </a>
-      {cafes.length > 1 && !c && (
-        <div className="map-note">
-          Listeden bir mekan seç, konumu burada açılsın.
-          {process.env.NODE_ENV !== 'production' && <span className="faint"> · Tüm mekanları tek haritada görmek için .env.local’a NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ekle.</span>}
-        </div>
       )}
+      {size &&
+        cafes.map((c, i) => {
+          const left = (toX(c.lng) - view.x) * scale + size.w / 2;
+          const top = (toY(c.lat) - view.y) * scale + size.h / 2;
+          if (left < -30 || left > size.w + 30 || top < -10 || top > size.h + 60) return null;
+          return (
+            <button
+              key={c.id}
+              type="button"
+              className="embed-marker"
+              style={{ left, top, zIndex: c.id === activeId ? 2 : 1 }}
+              onClick={() => onSelect?.(c.id)}
+              aria-label={c.name}
+              title={c.name}
+            >
+              <CafePin c={c} active={c.id === activeId} delay={Math.min(i, 12) * 0.03} />
+            </button>
+          );
+        })}
+      <div className="embed-actions">
+        {active && cafes.length > 1 && (
+          <button type="button" className="open-maps" onClick={() => setOverview(true)}>
+            <MapIcon size={14} /> Tüm mekanlar
+          </button>
+        )}
+        <a className="open-maps" href={`https://www.google.com/maps/search/?api=1&query=${active ? `${active.lat},${active.lng}` : `${lat},${lng}`}`} target="_blank" rel="noopener noreferrer">
+          <ExternalLink size={14} /> Google Maps’te aç
+        </a>
+      </div>
     </div>
   );
 }

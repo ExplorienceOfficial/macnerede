@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { AnimatePresence, motion } from 'motion/react';
 import { useMemo } from 'react';
 import { ArrowRight, CalendarDays, Check, MapPin } from 'lucide-react';
@@ -10,26 +11,57 @@ import MatchCard from './MatchCard';
 import { CityPicker, CompBadge, StadiumBackdrop } from './bits';
 import { scenes } from '@/lib/scenes';
 import { Jersey, PitchLines, TvIllustration } from './art';
-import { weekdayLabel, type MatchInfo } from '@/lib/fixtures';
+import { matchPath, weekdayLabel, withStatus, type DayTabs, type MatchInfo } from '@/lib/fixtures';
 import { BIG4, stadiumFor, team, type BigTeam } from '@/lib/teams';
 import { cityById, locative } from '@/lib/places';
-import { useCity, useListings, usePref } from '@/lib/hooks';
+import { useCity, useListings, useNow, usePref } from '@/lib/hooks';
+
+type Day = 'hafta' | 'bugun' | 'yarin' | 'haftasonu';
+const DAY_IDS: Day[] = ['hafta', 'bugun', 'yarin', 'haftasonu'];
 
 interface Props {
+  /** Haftanın maçları + hafta dışına taşan Bugün/Yarın/Hafta sonu günleri, başlama saatine göre sıralı */
   matches: MatchInfo[];
+  week: { start: string; end: string };
   weekText: string;
   nextWeek: boolean;
+  tabs: DayTabs;
 }
 
-export default function HomeView({ matches, weekText, nextWeek }: Props) {
+export default function HomeView({ matches: initial, week, weekText, nextWeek, tabs }: Props) {
   const [teamPick, setTeamPick] = usePref<'all' | BigTeam>('mn.team', 'all');
   const [city, setCity] = useCity();
-  const { cafes, broadcasts, venues, loading, error } = useListings(matches.map((m) => m.id));
+  const { cafes, broadcasts, venues, loading, error } = useListings(initial.map((m) => m.id));
 
-  const visible = useMemo(
+  // Sayfa açık kalırsa maç başlar/biter: durum tarayıcı saatiyle tazelenir, biten maç "sıradaki" kartından düşer
+  const now = useNow(30_000);
+  const matches = useMemo(() => (now === null ? initial : initial.map((m) => withStatus(m, now))), [initial, now]);
+
+  // Gün sekmesi adreste (?gun=bugun): üst menüdeki bağlantılar da aynı sekmeyi açar
+  const params = useSearchParams();
+  const day: Day = DAY_IDS.find((d) => d === params.get('gun')) ?? 'hafta';
+  const setDay = (d: Day) => window.history.replaceState(null, '', d === 'hafta' ? '/' : `/?gun=${d}`);
+  const inDay = (m: MatchInfo, d: Day) =>
+    d === 'bugun'
+      ? m.date === tabs.today
+      : d === 'yarin'
+        ? m.date === tabs.tomorrow
+        : d === 'haftasonu'
+          ? m.date >= tabs.weekend[0] && m.date <= tabs.weekend[1]
+          : m.date >= week.start && m.date <= week.end;
+
+  const byTeam = useMemo(
     () => (teamPick === 'all' ? matches : matches.filter((m) => m.home === teamPick || m.away === teamPick)),
     [matches, teamPick],
   );
+  const visible = byTeam.filter((m) => inDay(m, day));
+  const dayLabel: Record<Day, string> = { hafta: nextWeek ? 'Gelecek hafta' : 'Bu hafta', bugun: 'Bugün', yarin: 'Yarın', haftasonu: 'Hafta sonu' };
+  const listTitle: Record<Day, string> = {
+    hafta: nextWeek ? 'Gelecek haftanın maçları' : 'Bu haftanın maçları',
+    bugun: 'Bugünün maçları',
+    yarin: 'Yarının maçları',
+    haftasonu: 'Hafta sonu maçları',
+  };
 
   // Maçı veren anlaşmalı mekanlar + şehrin rehber mekanları (onlar büyük maçların hepsini genelde verir)
   const cafeCity = useMemo(() => new Map(cafes.map((c) => [c.id, c.city])), [cafes]);
@@ -48,7 +80,7 @@ export default function HomeView({ matches, weekText, nextWeek }: Props) {
     return (cityById(city)?.districts ?? []).filter((d) => n.has(d.id)).sort((a, b) => n.get(b.id)! - n.get(a.id)!);
   }, [cafes, cityVenues, city]);
 
-  const next = visible.find((m) => !m.finished);
+  const next = byTeam.find((m) => !m.finished);
   const byDay = useMemo(() => {
     const g = new Map<string, MatchInfo[]>();
     for (const m of visible) g.set(m.date, [...(g.get(m.date) ?? []), m]);
@@ -82,7 +114,7 @@ export default function HomeView({ matches, weekText, nextWeek }: Props) {
                 <div className="pick-label">Popüler semtler</div>
                 <div className="chips semt-chips">
                   {semts.slice(0, 8).map((d) => (
-                    <Link key={d.id} className="chip" href={`/mac/${next.id}?sehir=${city}&semt=${d.id}`}>
+                    <Link key={d.id} className="chip" href={matchPath(next, city, d.id)}>
                       <MapPin size={14} /> {d.name}
                     </Link>
                   ))}
@@ -104,22 +136,42 @@ export default function HomeView({ matches, weekText, nextWeek }: Props) {
           </AnimatePresence>
         </section>
 
-        <section className="section">
+        <section className="section" id="maclar">
           <div className="section-head">
             <div>
-              <h2>{nextWeek ? 'Gelecek haftanın maçları' : 'Bu haftanın maçları'}</h2>
+              <h2>{listTitle[day]}</h2>
               <p>
                 {cityById(city)?.name} için mekan sayıları gösteriliyor
                 {teamPick !== 'all' && ` · sadece ${team(teamPick).name}`}
               </p>
+            </div>
+            <div className="seg day-tabs" role="group" aria-label="Gün">
+              {DAY_IDS.map((d) => (
+                <button key={d} aria-pressed={day === d} onClick={() => setDay(d)}>
+                  {day === d && <motion.span layoutId="day-thumb" className="seg-thumb" transition={{ type: 'spring', stiffness: 500, damping: 38 }} />}
+                  {dayLabel[d]}
+                  <span className="seg-count">{byTeam.filter((m) => inDay(m, d)).length}</span>
+                </button>
+              ))}
             </div>
           </div>
 
           {byDay.length === 0 && (
             <div className="card empty">
               <TvIllustration home={teamPick === 'all' ? 'gs' : teamPick} />
-              <strong>Bu hafta {teamPick !== 'all' ? `${team(teamPick).name} maçı` : 'maç'} yok</strong>
-              Milli ara ya da boş hafta olabilir.
+              <strong>
+                {dayLabel[day]} {teamPick !== 'all' ? `${team(teamPick).name} maçı` : 'maç'} yok
+              </strong>
+              {day === 'hafta' ? (
+                'Milli ara ya da boş hafta olabilir.'
+              ) : (
+                <>
+                  {next && `Sıradaki maç: ${team(next.home).name} – ${team(next.away).name}, ${next.day}${next.time ? ` ${next.time}` : ''}.`}
+                  <button className="btn btn-soft btn-sm" style={{ marginTop: 6 }} onClick={() => setDay('hafta')}>
+                    Haftanın bütün maçları
+                  </button>
+                </>
+              )}
             </div>
           )}
 
@@ -220,12 +272,12 @@ function NextMatch({ m, count, city }: { m: MatchInfo; count: number | null; cit
           {team(m.away).name}
         </motion.div>
       </div>
-      {m.time && <Countdown to={m.kickoffISO} live={m.live} />}
+      {m.time && <Countdown to={m.kickoffISO} />}
       <div className="next-foot" style={{ marginTop: 18 }}>
         <span className="mc-count">
           <MapPin size={15} /> {count === null ? 'Mekanlar yükleniyor…' : `${locative(cityById(city)?.name ?? '')} ${count} mekan veriyor`}
         </span>
-        <Link href={`/mac/${m.id}?sehir=${city}`} className="btn btn-primary btn-sm">
+        <Link href={matchPath(m, city)} className="btn btn-primary btn-sm">
           Mekanları gör <ArrowRight size={15} />
         </Link>
       </div>

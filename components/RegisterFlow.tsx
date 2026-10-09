@@ -10,11 +10,11 @@ import Crest from './Crest';
 import LocationPicker, { type LatLng } from './LocationPicker';
 import PhotoPicker, { type PickedPhoto } from './PhotoPicker';
 import { FanBadge, KindIcon } from './bits';
-import { HookahIcon, LogoMark, PintIcon, PitchLines, TvIllustration } from './art';
-import { checkCode, demoMode, normalizeCode, registerCafe } from '@/lib/db';
+import { GoogleMark, HookahIcon, LogoMark, PintIcon, PitchLines, TvIllustration } from './art';
+import { checkCode, demoMode, googleSignIn, normalizeCode, prepareGoogle, registerCafe } from '@/lib/db';
 import { toCover, toPhoto } from '@/lib/images';
 import { scenes } from '@/lib/scenes';
-import { cities, cityById, districtById, districtName } from '@/lib/places';
+import { DEFAULT_CITY, cities, cityById, districtById, districtName } from '@/lib/places';
 import { BIG4, team, type BigTeam } from '@/lib/teams';
 import { CAFE_KINDS, plans, TRIAL_DAYS, type Cafe, type CafeKind, type PlanId } from '@/lib/types';
 
@@ -54,11 +54,11 @@ const initial: Form = {
   password: '',
   name: '',
   kind: 'Kafe',
-  city: 'istanbul',
-  district: 'kadikoy',
+  city: DEFAULT_CITY,
+  district: cityById(DEFAULT_CITY)!.districts[0].id,
   address: '',
   phone: '',
-  loc: { lat: 40.99, lng: 29.029 },
+  loc: { lat: cityById(DEFAULT_CITY)!.districts[0].center[0], lng: cityById(DEFAULT_CITY)!.districts[0].center[1] },
   locTouched: false,
   capacity: '',
   screens: '',
@@ -86,6 +86,32 @@ export default function RegisterFlow({ weekMatchCount, prefill }: { weekMatchCou
   const [coverId, setCoverId] = useState<string | null>(null);
   const [code, setCode] = useState('');
   const [codeState, setCodeState] = useState<CodeState>({ status: 'idle' });
+  /** Google ile devam edildiyse hesabın e-postası; şifre adımı atlanır */
+  const [google, setGoogle] = useState<string | null>(null);
+  const [googleBusy, setGoogleBusy] = useState(false);
+  const router = useRouter();
+
+  // Google penceresi tıklamayla hemen açılsın (yoksa tarayıcı engelleyebiliyor)
+  useEffect(() => {
+    prepareGoogle();
+  }, []);
+
+  async function continueWithGoogle() {
+    setError(null);
+    setGoogleBusy(true);
+    try {
+      const r = await googleSignIn();
+      if (!r) return;
+      if (r.hasCafe) return router.push('/panel');
+      setGoogle(r.email);
+      setDir(1);
+      setStep(1);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setGoogleBusy(false);
+    }
+  }
 
   const set = <K extends keyof Form>(k: K, v: Form[K]) => setF((p) => ({ ...p, [k]: v }));
   const coverPhoto = photos.find((p) => p.id === coverId) ?? photos[0] ?? null;
@@ -119,7 +145,7 @@ export default function RegisterFlow({ weekMatchCount, prefill }: { weekMatchCou
   }, [f.city, f.district, f.locTouched]);
 
   function validate(s: number): string | null {
-    if (s === 0) {
+    if (s === 0 && !google) {
       if (!/^\S+@\S+\.\S+$/.test(f.email)) return 'Geçerli bir e-posta yaz.';
       if (f.password.length < 6) return 'Şifre en az 6 karakter olmalı.';
     }
@@ -157,7 +183,7 @@ export default function RegisterFlow({ weekMatchCount, prefill }: { weekMatchCou
         photos: ordered.map((p) => p.data),
         cover: coverPhoto ? await toCover(coverPhoto.data) : null,
       };
-      const cafe = await registerCafe(f.email.trim(), f.password, {
+      const cafe = await registerCafe(google ? 'google' : { email: f.email.trim(), password: f.password }, {
         name: f.name.trim(),
         kind: f.kind,
         city: f.city,
@@ -213,19 +239,19 @@ export default function RegisterFlow({ weekMatchCount, prefill }: { weekMatchCou
       </aside>
 
       <section className="card reg-main">
-        <div className="progress" aria-hidden>
+        {/* Bütün adımlar baştan görünür: ne kadar kaldığı belli olsun */}
+        <ol className="progress" aria-label={`Adım ${step + 1} / ${STEPS.length}`}>
           {STEPS.map((s, i) => (
-            <span key={s}>
-              <motion.i initial={false} animate={{ scaleX: i <= step ? 1 : 0 }} transition={{ duration: 0.4, ease: [0.2, 0.7, 0.3, 1] }} />
-            </span>
+            <li key={s} aria-current={i === step ? 'step' : undefined} data-done={i < step || undefined}>
+              <span className="bar">
+                <motion.i initial={false} animate={{ scaleX: i <= step ? 1 : 0 }} transition={{ duration: 0.4, ease: [0.2, 0.7, 0.3, 1] }} />
+              </span>
+              <small>
+                {i + 1}. {s}
+              </small>
+            </li>
           ))}
-        </div>
-        <div className="step-meta">
-          <span>
-            Adım {step + 1} / {STEPS.length}
-          </span>
-          <span>{STEPS[step]}</span>
-        </div>
+        </ol>
 
         {demoMode && step === 0 && (
           <div className="demo-banner">
@@ -246,7 +272,29 @@ export default function RegisterFlow({ weekMatchCount, prefill }: { weekMatchCou
             {step === 0 && (
               <>
                 <h2 className="step-title">Önce hesabını açalım</h2>
-                <p className="step-desc">Bu bilgilerle mekan paneline gireceksin.</p>
+                <p className="step-desc">Mekan paneline bu hesapla gireceksin. Toplam 5 kısa adım, 3 dakika sürer.</p>
+                {google ? (
+                  <div className="trial-note" style={{ marginTop: 0 }}>
+                    <Check size={18} style={{ flex: 'none', marginTop: 2 }} />
+                    <span style={{ flex: 1 }}>
+                      <b>{google}</b> Google hesabıyla devam ediyorsun.
+                    </span>
+                    <button type="button" className="link-btn" onClick={() => setGoogle(null)}>
+                      Değiştir
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    {!demoMode && (
+                      <>
+                        <button type="button" className="btn btn-google btn-lg btn-block" onClick={continueWithGoogle} disabled={googleBusy}>
+                          {googleBusy ? <Loader2 size={18} className="spin" /> : <GoogleMark size={20} />} Google ile devam et
+                        </button>
+                        <div className="or-sep">
+                          <span>ya da e-posta ve şifreyle</span>
+                        </div>
+                      </>
+                    )}
                 <div className="field">
                   <label htmlFor="email">E-posta</label>
                   <input id="email" className="input" type="email" autoComplete="email" value={f.email} onChange={(e) => set('email', e.target.value)} placeholder="isletme@ornek.com" />
@@ -260,6 +308,8 @@ export default function RegisterFlow({ weekMatchCount, prefill }: { weekMatchCou
                     </button>
                   </div>
                 </div>
+                  </>
+                )}
               </>
             )}
 
@@ -492,6 +542,9 @@ export default function RegisterFlow({ weekMatchCount, prefill }: { weekMatchCou
                     </motion.div>
                   )}
                 </AnimatePresence>
+                <p className="hint" style={{ marginTop: 14 }}>
+                  Kaydı tamamlayarak maçları yasal ticari yayın üyeliğiyle verdiğini beyan edersin; yayının sorumluluğu mekana aittir.
+                </p>
               </>
             )}
           </motion.div>

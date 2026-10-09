@@ -31,10 +31,10 @@ import {
   type AdminSession,
   type MembershipPreset,
 } from '@/lib/db';
-import { cities, cityById, districtById, districtName } from '@/lib/places';
+import { DEFAULT_CITY, cities, cityById, districtById, districtName } from '@/lib/places';
 import { BIG4, team, type BigTeam } from '@/lib/teams';
 import { CAFE_KINDS, plans, type Payment, type ActivationCode, type Broadcast, type Cafe, type CafeKind, type Lead, type PlanId, type Venue } from '@/lib/types';
-import type { MatchInfo } from '@/lib/fixtures';
+import { matchPath, type MatchInfo } from '@/lib/fixtures';
 import { formatPhone, tl, waLink } from '@/lib/hooks';
 import { bundledVenues } from '@/lib/venues';
 
@@ -54,7 +54,8 @@ function friendly(e: unknown) {
   if (code === 'auth/operation-not-allowed') return 'Google ile giriş kapalı. Firebase Console → Authentication → Sign-in method → Google’ı aç.';
   if (code === 'auth/unauthorized-domain') return 'Bu alan adı Firebase’de yetkili değil (Authentication → Settings → Authorized domains).';
   if (code === 'auth/popup-blocked') return POPUP_BLOCKED;
-  if (code === 'permission-denied') return 'Bu Google hesabının yönetim yetkisi yok.';
+  // Panel sadece yönetici doğrulanınca açılıyor: burada reddedilme çoğunlukla canlıdaki kuralların eski kalmasıdır
+  if (code === 'permission-denied') return 'Erişim reddedildi. Yönetici hesabıyla girdiysen Firestore kuralları güncel değil: firebase deploy --only firestore:rules';
   return (e as Error)?.message ?? 'Bir şeyler ters gitti.';
 }
 
@@ -231,7 +232,7 @@ function WeekTab({ matches, weekText, cafes }: { matches: MatchInfo[]; weekText:
                           );
                         })
                       )}
-                      <Link className="btn btn-soft btn-sm" style={{ marginTop: 10 }} href={`/mac/${m.id}`}>
+                      <Link className="btn btn-soft btn-sm" style={{ marginTop: 10 }} href={matchPath(m, DEFAULT_CITY)}>
                         <ExternalLink size={14} /> Maç sayfası
                       </Link>
                     </div>
@@ -485,7 +486,7 @@ function NewCafeTab({ onCreated }: { onCreated: (c: Cafe) => void }) {
 
   if (done) {
     const loginUrl = `${window.location.origin}/giris`;
-    const msg = `Merhaba ${done.cafe.name}, MaçNerede mekan hesabınız açıldı.\nGiriş: ${loginUrl}\nE-posta: ${done.email}\nŞifre: ${done.password}\nGirişten sonra panelden maçlarınızı ve fotoğraflarınızı ekleyebilirsiniz.`;
+    const msg = `Merhaba ${done.cafe.name}, NeredeMaç mekan hesabınız açıldı.\nGiriş: ${loginUrl}\nE-posta: ${done.email}\nŞifre: ${done.password}\nGirişten sonra panelden maçlarınızı ve fotoğraflarınızı ekleyebilirsiniz.`;
     return (
       <motion.section className="card panel-card" initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }}>
         <div className="code-gift" style={{ marginBottom: 16 }}>
@@ -996,7 +997,7 @@ function LeadsTab() {
               {venueName(l.venueId) && ` · rehberdeki “${venueName(l.venueId)}” için`}
             </span>
           </div>
-          <a className="btn btn-wa btn-sm" href={waLink(l.phone, `Merhaba, MaçNerede’ye ${l.name} için yaptığınız başvuru hakkında yazıyorum.`)} target="_blank" rel="noopener noreferrer">
+          <a className="btn btn-wa btn-sm" href={waLink(l.phone, `Merhaba, NeredeMaç’a ${l.name} için yaptığınız başvuru hakkında yazıyorum.`)} target="_blank" rel="noopener noreferrer">
             <MessageCircle size={15} /> Yaz
           </a>
           <button className="icon-btn" onClick={() => done(l)} aria-label={`${l.name} başvurusunu kaldır`}>

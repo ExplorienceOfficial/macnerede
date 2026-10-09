@@ -45,7 +45,7 @@ export async function POST(req: Request) {
       conversationId: ref.id,
       amount,
       itemId: `${plan}-${months}`,
-      itemName: `MaçNerede ${plans[plan].name} üyelik (${PERIODS[period].label})`,
+      itemName: `NeredeMaç ${plans[plan].name} üyelik (${PERIODS[period].label})`,
       callbackUrl: `${origin}/api/odeme/sonuc`,
       buyer: {
         id: uid,

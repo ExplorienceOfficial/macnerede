@@ -1,7 +1,7 @@
 import AdminView from '@/components/AdminView';
 import { currentWeek, decorate, weekLabel } from '@/lib/fixtures';
 
-export const metadata = { title: 'Admin paneli — MaçNerede', robots: { index: false, follow: false } };
+export const metadata = { title: 'Admin paneli', robots: { index: false, follow: false } };
 
 export default function AdminPage() {
   const now = new Date();
