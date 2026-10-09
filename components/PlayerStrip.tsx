@@ -57,11 +57,8 @@ export function PlayerAvatars({ pick }: { pick: 'all' | BigTeam }) {
     <div className="avatar-row" aria-label="Öne çıkan oyuncular">
       <AnimatePresence mode="popLayout" initial={false}>
         {list.map((p, i) => (
-          <motion.a
+          <motion.div
             key={p.id}
-            href={p.source}
-            target="_blank"
-            rel="noopener noreferrer"
             className="avatar"
             title={`${p.name} — ${team(p.team).name} · Foto: ${p.credit}, ${p.license}`}
             initial={{ opacity: 0, scale: 0.4, y: 10 }}
@@ -74,7 +71,7 @@ export function PlayerAvatars({ pick }: { pick: 'all' | BigTeam }) {
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={p.photo} alt="" />
             <span>{p.name.split(' ').slice(-1)[0]}</span>
-          </motion.a>
+          </motion.div>
         ))}
       </AnimatePresence>
     </div>
