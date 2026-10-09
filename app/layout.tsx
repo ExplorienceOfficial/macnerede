@@ -4,6 +4,7 @@ import './globals.css';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import Providers from '@/components/Providers';
+import { themeInitScript } from '@/lib/theme';
 
 const sans = Figtree({ subsets: ['latin', 'latin-ext'], weight: ['400', '500', '600', '700', '800', '900'], variable: '--font-sans' });
 
@@ -23,7 +24,10 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="tr" className={sans.variable}>
+    <html lang="tr" className={sans.variable} suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+      </head>
       <body>
         <Providers>
           <Header />

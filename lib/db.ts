@@ -20,8 +20,8 @@ import {
   writeBatch,
   type DocumentSnapshot,
 } from 'firebase/firestore';
-import { GoogleAuthProvider, createUserWithEmailAndPassword, onAuthStateChanged, signInWithEmailAndPassword, signInWithPopup, signOut } from 'firebase/auth';
-import { firebase, firebaseEnabled } from './firebase';
+import { GoogleAuthProvider, createUserWithEmailAndPassword, onAuthStateChanged, sendPasswordResetEmail, signInWithEmailAndPassword, signInWithPopup, signOut } from 'firebase/auth';
+import { creatorAuth, firebase, firebaseEnabled } from './firebase';
 import { demoBroadcasts, demoCafes } from './demo-seed';
 import { CODE_PATTERN, MAX_PHOTOS, TRIAL_DAYS, type ActivationCode, type Broadcast, type Cafe, type CafePhoto, type PlanId, type Reservation } from './types';
 
@@ -56,7 +56,7 @@ function cafeFromDoc(d: DocumentSnapshot): Cafe {
 }
 
 // ---------------- demo depolama ----------------
-const K = { cafes: 'mn.cafes', bc: 'mn.broadcasts', res: 'mn.reservations', acc: 'mn.accounts', session: 'mn.session', codes: 'mn.codes', photos: 'mn.photos' };
+const K = { cafes: 'mn.cafes', bc: 'mn.broadcasts', res: 'mn.reservations', acc: 'mn.accounts', session: 'mn.session', codes: 'mn.codes', photos: 'mn.photos', adminCodes: 'mn.adminCodes' };
 const SESSION_EVENT = 'mn-session';
 
 function lsGet<T>(key: string, fallback: T): T {
@@ -471,16 +471,54 @@ export function watchReservations(cafeId: string, cb: (list: Reservation[]) => v
   );
 }
 
+// ---------------- şifre & profil ----------------
+export async function resetPassword(email: string) {
+  if (demoMode) {
+    await wait(400);
+    return;
+  }
+  try {
+    await sendPasswordResetEmail(firebase().auth, email);
+  } catch (e) {
+    throw authError(e);
+  }
+}
+
+/** Mekanın kendi bilgilerini güncellemesi (üyelik/plan/kod hariç) */
+export type CafeProfile = Pick<Cafe, 'name' | 'kind' | 'address' | 'phone' | 'capacity' | 'screens' | 'features' | 'priceMin' | 'priceMax' | 'fanOf'>;
+
+export async function updateCafeProfile(cafeId: string, patch: CafeProfile) {
+  if (demoMode) {
+    await wait(300);
+    lsSet(K.cafes, lsGet<Cafe[]>(K.cafes, []).map((c) => (c.id === cafeId ? { ...c, ...patch } : c)));
+    return;
+  }
+  await updateDoc(doc(firebase().db, 'cafes', cafeId), { ...patch });
+}
+
 // ---------------- yönetim (sadece firestore.rules'taki yönetici e-postası) ----------------
+const DEMO_ADMIN = 'demo-yonetici@macnerede';
+
 export async function adminSignIn(): Promise<void> {
+  if (demoMode) return;
   await signInWithPopup(firebase().auth, new GoogleAuthProvider());
 }
 
 export function watchAdmin(cb: (email: string | null) => void): () => void {
+  if (demoMode) {
+    cb(DEMO_ADMIN);
+    return () => {};
+  }
   return onAuthStateChanged(firebase().auth, (u) => cb(u && u.providerData.some((p) => p.providerId === 'google.com') ? u.email : null));
 }
 
 export async function adminListCodes(): Promise<ActivationCode[]> {
+  if (demoMode) {
+    const used = lsGet<string[]>(K.codes, []);
+    return lsGet<string[]>(K.adminCodes, [])
+      .map((code) => ({ code, days: CODE_DAYS, plan: 'standart' as PlanId, used: used.includes(code), usedBy: null, usedAt: null }))
+      .sort((a, b) => a.code.localeCompare(b.code));
+  }
   const snap = await getDocs(collection(firebase().db, 'codes'));
   return snap.docs
     .map((d) => {
@@ -492,13 +530,115 @@ export async function adminListCodes(): Promise<ActivationCode[]> {
 
 /** Yeni kodları yükler; zaten var olanlara dokunmaz (kullanılmış bir kod sıfırlanmasın) */
 export async function adminUploadCodes(codes: string[], days = CODE_DAYS, plan: PlanId = 'standart'): Promise<number> {
-  const { db } = firebase();
   const existing = new Set((await adminListCodes()).map((c) => c.code));
   const fresh = [...new Set(codes)].filter((c) => CODE_PATTERN.test(c) && !existing.has(c));
+  if (demoMode) {
+    lsSet(K.adminCodes, [...lsGet<string[]>(K.adminCodes, []), ...fresh]);
+    return fresh.length;
+  }
+  const { db } = firebase();
   for (let i = 0; i < fresh.length; i += 400) {
     const batch = writeBatch(db);
     fresh.slice(i, i + 400).forEach((c) => batch.set(doc(db, 'codes', c), { days, plan, used: false, usedBy: null, usedAt: null, createdAt: serverTimestamp() }));
     await batch.commit();
   }
   return fresh.length;
+}
+
+/** Tüm mekanlar (üyeliği bitmiş olanlar dahil) */
+export async function adminListCafes(): Promise<Cafe[]> {
+  if (demoMode) {
+    await wait(250);
+    return demo.cafes();
+  }
+  const snap = await getDocs(collection(firebase().db, 'cafes'));
+  return snap.docs.map(cafeFromDoc).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+}
+
+export type MembershipPreset = 'trial' | 'year' | 'month' | 'cancel';
+
+const presetDays: Record<Exclude<MembershipPreset, 'cancel'>, number> = { trial: TRIAL_DAYS, year: 365, month: 30 };
+
+function presetMembership(preset: MembershipPreset, current?: Cafe['membership']): Cafe['membership'] {
+  const now = Date.now();
+  if (preset === 'cancel') return { status: 'canceled', startedAt: current?.startedAt ?? new Date(now).toISOString(), renewsAt: new Date(now).toISOString() };
+  // Süre uzatırken kalan günler yanmasın: bitiş tarihi ileride ise oradan devam et
+  const base = current && preset === 'month' && current.status === 'active' ? Math.max(now, new Date(current.renewsAt).getTime()) : now;
+  return {
+    status: preset === 'month' ? 'active' : 'trial',
+    startedAt: new Date(now).toISOString(),
+    renewsAt: new Date(base + presetDays[preset] * 86400000).toISOString(),
+  };
+}
+
+const membershipToDb = (m: Cafe['membership']) => ({
+  status: m.status,
+  startedAt: Timestamp.fromDate(new Date(m.startedAt)),
+  renewsAt: Timestamp.fromDate(new Date(m.renewsAt)),
+});
+
+/** Yönetici mekan adına hesap açar; mekan bu e-posta/şifreyle /giris'ten girer */
+export async function adminCreateCafe(email: string, password: string, data: NewCafe, preset: MembershipPreset): Promise<Cafe> {
+  if (password.length < 6) throw new Error('Şifre en az 6 karakter olmalı.');
+  const membership = presetMembership(preset);
+
+  if (demoMode) {
+    await wait(600);
+    const accounts = lsGet<{ email: string; pass: string; cafeId: string }[]>(K.acc, []);
+    if (accounts.some((a) => a.email === email.toLowerCase())) throw new Error('Bu e-posta ile zaten bir mekan kayıtlı.');
+    const cafe: Cafe = { ...data, id: `demo-${Date.now().toString(36)}`, cover: null, membership, createdAt: new Date().toISOString() };
+    lsSet(K.cafes, [...lsGet<Cafe[]>(K.cafes, []), cafe]);
+    lsSet(K.acc, [...accounts, { email: email.toLowerCase(), pass: weakHash(password), cafeId: cafe.id }]);
+    return cafe;
+  }
+
+  // Hesap ikinci uygulamada açılır, yöneticinin oturumu açık kalır
+  const auth = creatorAuth();
+  let uid: string;
+  try {
+    const cred = await createUserWithEmailAndPassword(auth, email, password);
+    uid = cred.user.uid;
+  } catch (e) {
+    throw authError(e);
+  }
+  const cafe: Cafe = { ...data, id: uid, cover: null, membership, createdAt: new Date().toISOString() };
+  const { id: _id, ...rest } = cafe;
+  try {
+    await setDoc(doc(firebase().db, 'cafes', uid), { ...rest, createdAt: Timestamp.fromDate(new Date(cafe.createdAt)), membership: membershipToDb(membership) });
+  } catch (e) {
+    await auth.currentUser?.delete().catch(() => {});
+    throw authError(e);
+  } finally {
+    await signOut(auth).catch(() => {});
+  }
+  return cafe;
+}
+
+/** Üyelik işlemleri: deneme, 1 ay aktif (uzatır), 1 yıl ücretsiz, askıya al; istenirse plan değişikliği */
+export async function adminSetMembership(cafe: Cafe, preset: MembershipPreset | null, plan?: PlanId): Promise<Cafe> {
+  const membership = preset ? presetMembership(preset, cafe.membership) : cafe.membership;
+  const next: Cafe = { ...cafe, membership, plan: plan ?? cafe.plan };
+  if (demoMode) {
+    await wait(300);
+    const own = lsGet<Cafe[]>(K.cafes, []);
+    // Örnek (seed) mekanlar da yönetilebilsin diye yerel kopyaya yaz
+    const list = own.some((c) => c.id === cafe.id) ? own.map((c) => (c.id === cafe.id ? next : c)) : own;
+    lsSet(K.cafes, list);
+    return next;
+  }
+  await updateDoc(doc(firebase().db, 'cafes', cafe.id), { plan: next.plan, membership: membershipToDb(membership) });
+  return next;
+}
+
+/** Seçilen maçların tüm rezervasyonları (sadece yönetici) */
+export async function adminListReservations(matchIds: string[]): Promise<Reservation[]> {
+  if (!matchIds.length) return [];
+  if (demoMode) return demo.reservations().filter((r) => matchIds.includes(r.matchId));
+  const { db } = firebase();
+  const out: Reservation[] = [];
+  for (let i = 0; i < matchIds.length; i += 30) {
+    const snap = await getDocs(query(collection(db, 'reservations'), where('matchId', 'in', matchIds.slice(i, i + 30))));
+    snap.forEach((d) => out.push({ ...(d.data() as Omit<Reservation, 'id'>), id: d.id }));
+  }
+  return out;
 }

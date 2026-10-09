@@ -8,6 +8,7 @@ import Crest from './Crest';
 import { KindIcon } from './bits';
 import type { CafeKind } from '@/lib/types';
 import type { BigTeam, Stadium } from '@/lib/teams';
+import { useTheme } from '@/lib/theme';
 
 const KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? '';
 const MAP_ID = process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID || 'DEMO_MAP_ID';
@@ -39,6 +40,7 @@ interface Props {
 }
 
 export default function CafeMap(props: Props) {
+  const theme = useTheme();
   if (!mapsEnabled) return <EmbedMap {...props} />;
   const { cafes, activeId, onSelect, center, zoom = 13, stadium } = props;
   return (
@@ -51,7 +53,7 @@ export default function CafeMap(props: Props) {
         disableDefaultUI
         zoomControl
         clickableIcons={false}
-        colorScheme="FOLLOW_SYSTEM"
+        colorScheme={theme === 'dark' ? 'DARK' : 'LIGHT'}
         style={{ width: '100%', height: '100%' }}
       >
         {stadium && (

@@ -10,8 +10,9 @@ npm install
 npm run dev
 ```
 
-`.env.local` yoksa site **demo modunda** çalışır: örnek mekanlar gösterilir, kayıt/rezervasyon tarayıcıda saklanır.
-Değişkenler için `.env.local.example`'a bak.
+Firebase ayarları depodaki `.env` dosyasında (web ayarları gizli değildir; güvenliği `firestore.rules` sağlar), yani
+klonlayıp çalıştırınca site doğrudan `macnerede-58592` projesine bağlanır. Firebase değişkenleri boş bırakılırsa site
+**demo modunda** çalışır: örnek mekanlar, kayıt ve rezervasyonlar tarayıcıda saklanır.
 
 ## Sayfalar
 
@@ -21,8 +22,8 @@ Değişkenler için `.env.local.example`'a bak.
 | `/mac/[id]` | Maçı veren mekanlar: filtreler, harita (stadyum fotoğraflı işaretçi), rezervasyon + bilet animasyonu |
 | `/kafe/[id]` | Mekan detayı, fotoğraf galerisi, bu hafta verdiği maçlar |
 | `/kayit` | Mekan kaydı (5 adım) — fotoğraflar, aktivasyon kodu, üyelik |
-| `/giris` · `/panel` | Mekan girişi ve paneli: maç aç/kapa, canlı rezervasyonlar, gelen müşteri istatistikleri, fotoğraflar |
-| `/yonetim` | Yönetici (Google ile giriş): aktivasyon kodlarını yükle, kim kullandı gör |
+| `/giris` · `/panel` | Mekan girişi (şifremi unuttum dahil) ve paneli: maç aç/kapa, canlı rezervasyonlar, gelen müşteri istatistikleri, fotoğraflar, mekan bilgileri |
+| `/yonetim` | **Admin paneli** (Google ile giriş): bu haftanın maçları ve rezervasyon özeti, tüm mekanlar + üyelik işlemleri (1 ay aktif, 1 yıl ücretsiz, deneme, askıya al, plan), mekan adına hesap açma, aktivasyon kodları |
 
 ## Fikstür
 
@@ -56,6 +57,17 @@ kodları sadece yönetici (`kagankarki03@gmail.com`, Google ile) listeleyip olu�
 - Firebase'e yüklemek: `/yonetim` → Google ile gir → **Dosya seç** → `kodlar.txt` → **Yükle**. Var olan kodlara dokunulmaz.
 - Mekan, kayıt ekranının son adımında kodu girer; kod doğrulanınca plan seçimi kalkar, üyelik 365 gün olarak açılır.
 - Yeni kod üretmek için aynı biçimde bir txt hazırlayıp yönetim sayfasından yüklemek yeterli.
+
+## Mekan hesapları
+
+İki yol var: mekan `/kayit`'tan kendisi kayıt olur (14 gün deneme ya da aktivasyon kodu), ya da yönetici `/yonetim` →
+**Yeni mekan** sekmesinden hesabı açar ve çıkan giriş bilgisini (kopyala / WhatsApp) mekana gönderir. Mekan geçici şifreyi
+giriş ekranındaki **Şifremi unuttum** ile değiştirebilir.
+
+## Tema
+
+Sağ üstteki düğmeyle açık/koyu tema; seçim hatırlanır, seçim yoksa sistem ayarı kullanılır. Üstteki atkı şeridi
+(dört takımın renkleri) sürekli kayar; "hareketi azalt" açık cihazlarda durur.
 
 ## Google Maps
 

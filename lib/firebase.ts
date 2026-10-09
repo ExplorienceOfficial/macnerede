@@ -1,4 +1,4 @@
-import { getApps, initializeApp, type FirebaseApp } from 'firebase/app';
+import { getApp, getApps, initializeApp, type FirebaseApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 
@@ -16,6 +16,18 @@ export const firebaseEnabled = Boolean(config.apiKey && config.projectId);
 
 let app: FirebaseApp | undefined;
 export function firebase() {
-  app ??= getApps()[0] ?? initializeApp(config);
-  return { db: getFirestore(app), auth: getAuth(app) };
+  app ??= getApps().find((a) => a.name === '[DEFAULT]') ?? initializeApp(config);
+  const auth = getAuth(app);
+  auth.languageCode = 'tr'; // şifre sıfırlama e-postaları Türkçe gitsin
+  return { db: getFirestore(app), auth };
+}
+
+/**
+ * Yöneticinin mekan adına hesap açması için ikinci bir uygulama örneği.
+ * Yeni hesap burada açılır; böylece yöneticinin kendi oturumu kapanmaz.
+ */
+export function creatorAuth() {
+  const name = 'mekan-hesabi-ac';
+  const second = getApps().some((a) => a.name === name) ? getApp(name) : initializeApp(config, name);
+  return getAuth(second);
 }

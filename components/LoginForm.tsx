@@ -6,7 +6,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import { useState } from 'react';
 import { Info } from 'lucide-react';
 import { LogoMark } from './art';
-import { demoMode, login } from '@/lib/db';
+import { demoMode, login, resetPassword } from '@/lib/db';
 
 export default function LoginForm() {
   const router = useRouter();
@@ -15,6 +15,19 @@ export default function LoginForm() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [shake, setShake] = useState(0);
+  const [notice, setNotice] = useState<string | null>(null);
+
+  async function forgot() {
+    setError(null);
+    setNotice(null);
+    if (!/^\S+@\S+\.\S+$/.test(email.trim())) return setError('Önce e-posta adresini yaz, sıfırlama bağlantısını oraya gönderelim.');
+    try {
+      await resetPassword(email.trim());
+      setNotice(`Şifre sıfırlama bağlantısı ${email.trim()} adresine gönderildi. Gelen kutunu (ve spam klasörünü) kontrol et.`);
+    } catch (err) {
+      setError((err as Error).message);
+    }
+  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -58,6 +71,18 @@ export default function LoginForm() {
         <label htmlFor="l-pass">Şifre</label>
         <input id="l-pass" className="input" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} />
       </div>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', margin: '-4px 0 14px' }}>
+        <button type="button" className="link-btn" onClick={forgot}>
+          Şifremi unuttum
+        </button>
+      </div>
+      <AnimatePresence>
+        {notice && (
+          <motion.div className="trial-note" style={{ marginTop: 0, marginBottom: 14 }} initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0 }}>
+            {notice}
+          </motion.div>
+        )}
+      </AnimatePresence>
       <AnimatePresence>
         {error && (
           <motion.div className="form-error" initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0 }}>

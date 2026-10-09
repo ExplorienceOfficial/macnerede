@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { LogoMark, ScarfStripe } from './art';
+import ThemeToggle from './ThemeToggle';
 import { watchSession } from '@/lib/db';
 
 export default function Header() {
@@ -19,6 +20,7 @@ export default function Header() {
         </Link>
         <nav className="nav">
           <Link href="/" className="link">Bu hafta</Link>
+          <ThemeToggle />
           {session ? (
             <Link href="/panel" className="btn btn-soft btn-sm">Mekan paneli</Link>
           ) : (

@@ -54,7 +54,8 @@ service cloud.firestore {
           && data().membership.renewsAt < request.time + duration.value(c.days + 1, 'd');
       }
 
-      allow create: if isOwner(cafeId) && basicsOk() && (trialOk() || ('activationCode' in data() && codeOk()));
+      // Mekan kendisi kayıt olur ya da yönetici mekan adına hesap açar
+      allow create: if isAdmin() || (isOwner(cafeId) && basicsOk() && (trialOk() || ('activationCode' in data() && codeOk())));
 
       // Mekan kendi bilgisini (kapak dahil) günceller; üyelik, plan ve koda dokunamaz.
       // Üyeliği ödeme altyapısı / yönetici değiştirir.
@@ -111,8 +112,9 @@ service cloud.firestore {
         && request.resource.data.phone is string && request.resource.data.phone.size() <= 20
         && request.resource.data.status == 'new'
         && exists(/databases/$(database)/documents/broadcasts/$(request.resource.data.cafeId + '_' + request.resource.data.matchId));
-      // Telefon numaraları sadece ilgili mekana görünür
-      allow read, update: if signedIn() && resource.data.cafeId == request.auth.uid;
+      // Telefon numaraları sadece ilgili mekana (ve yöneticiye) görünür
+      allow read: if isAdmin() || (signedIn() && resource.data.cafeId == request.auth.uid);
+      allow update: if signedIn() && resource.data.cafeId == request.auth.uid;
     }
   }
 }

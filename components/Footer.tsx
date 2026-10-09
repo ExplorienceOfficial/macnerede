@@ -13,6 +13,7 @@ export default function Footer() {
           <Link href="/kayit">Mekanını ekle</Link>
           <Link href="/giris">Mekan girişi</Link>
           <a href="mailto:merhaba@macnerede.com">İletişim</a>
+          <Link href="/yonetim">Yönetim</Link>
         </div>
       </div>
     </footer>

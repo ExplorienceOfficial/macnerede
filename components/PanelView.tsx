@@ -7,6 +7,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { BellRing, Check, CheckCheck, CreditCard, ExternalLink, Gift, LogOut, Phone } from 'lucide-react';
 import Crest from './Crest';
 import PhotoPicker from './PhotoPicker';
+import ProfileEditor from './ProfileEditor';
 import {
   addPhoto,
   deletePhoto,
@@ -181,6 +182,7 @@ export default function PanelView({ matches, weekText }: { matches: MatchInfo[];
             ))}
           </section>
           <PhotoManager cafe={cafe} onCafe={setCafe} />
+          <ProfileEditor cafe={cafe} onCafe={setCafe} />
         </div>
 
         <div>
@@ -317,7 +319,7 @@ function Membership({ cafe }: { cafe: Cafe }) {
   const p = plans[cafe.plan];
   const viaCode = !!cafe.activationCode;
   const status = {
-    trial: { t: viaCode ? `Aktivasyon kodu · ${daysLeft} gün ücretsiz` : `Deneme · ${daysLeft} gün kaldı`, c: 'var(--accent)' },
+    trial: { t: viaCode ? `Aktivasyon kodu · ${daysLeft} gün ücretsiz` : total > 30 ? `Ücretsiz üyelik · ${daysLeft} gün kaldı` : `Deneme · ${daysLeft} gün kaldı`, c: 'var(--accent)' },
     active: { t: 'Aktif üyelik', c: 'var(--accent)' },
     past_due: { t: 'Ödeme bekleniyor', c: 'var(--gold)' },
     canceled: { t: 'Üyelik bitti — listede görünmüyorsun', c: 'var(--danger)' },
@@ -340,7 +342,7 @@ function Membership({ cafe }: { cafe: Cafe }) {
         </motion.div>
         <div>
           <h2 style={{ marginBottom: 2 }}>
-            {p.name} {viaCode ? '' : `· ${tl(p.price)}/ay`}
+            {p.name} {viaCode || (m.status === 'trial' && total > 30) ? '' : `· ${tl(p.price)}/ay`}
           </h2>
           <span style={{ color: status.c, fontWeight: 600, fontSize: 14, display: 'inline-flex', gap: 6, alignItems: 'center' }}>
             {viaCode && <Gift size={15} />} {status.t}
@@ -352,7 +354,9 @@ function Membership({ cafe }: { cafe: Cafe }) {
           ? `Sonraki yenileme: ${renews}.`
           : viaCode
             ? `${cafe.activationCode} koduyla ${renews} tarihine kadar ücretsizsin.`
-            : `Deneme ${renews} tarihinde bitiyor. Ödeme bağlantısı e-postana gelecek.`}
+            : total > 30
+              ? `${renews} tarihine kadar ücretsizsin.`
+              : `Deneme ${renews} tarihinde bitiyor. Ödeme bağlantısı e-postana gelecek.`}
       </p>
       <a className="btn btn-ghost btn-sm" style={{ marginTop: 12 }} href={`mailto:merhaba@macnerede.com?subject=${encodeURIComponent(`Üyelik: ${cafe.name}`)}`}>
         <CreditCard size={15} /> Ödeme / plan değişikliği

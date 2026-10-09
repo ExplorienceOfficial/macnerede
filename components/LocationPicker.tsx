@@ -3,6 +3,7 @@
 import { APIProvider, AdvancedMarker, Map, useMap } from '@vis.gl/react-google-maps';
 import { useEffect, useState } from 'react';
 import { mapsEnabled } from './CafeMap';
+import { useTheme } from '@/lib/theme';
 
 const KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? '';
 const MAP_ID = process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID || 'DEMO_MAP_ID';
@@ -23,6 +24,7 @@ export function parseMapsLink(s: string): LatLng | null {
 }
 
 export default function LocationPicker({ value, onChange }: { value: LatLng; onChange: (v: LatLng) => void }) {
+  const theme = useTheme();
   const [link, setLink] = useState('');
   const [linkError, setLinkError] = useState<string | null>(null);
 
@@ -49,7 +51,7 @@ export default function LocationPicker({ value, onChange }: { value: LatLng; onC
               disableDefaultUI
               zoomControl
               clickableIcons={false}
-              colorScheme="FOLLOW_SYSTEM"
+              colorScheme={theme === 'dark' ? 'DARK' : 'LIGHT'}
               onClick={(e) => e.detail.latLng && onChange(e.detail.latLng)}
               style={{ width: '100%', height: '100%' }}
             >

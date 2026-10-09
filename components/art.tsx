@@ -13,15 +13,17 @@ export function LogoMark({ size = 32 }: { size?: number }) {
   );
 }
 
-/** Sayfanın en üstündeki atkı şeridi: dört kulübün renkleri */
+/** Sayfanın en üstündeki atkı şeridi: dört kulübün renkleri, sürekli kayar (iki tur arka arkaya, yarısı kadar kayınca başa sarar) */
 export function ScarfStripe() {
-  const segs: BigTeam[] = ['gs', 'fb', 'bjk', 'ts'];
+  const segs: BigTeam[] = ['gs', 'fb', 'bjk', 'ts', 'gs', 'fb', 'bjk', 'ts'];
   return (
     <div className="scarf" aria-hidden>
-      {segs.map((id) => {
-        const [a, b] = team(id).colors;
-        return <span key={id} style={{ background: `repeating-linear-gradient(-45deg, ${a} 0 10px, ${b} 10px 20px)` }} />;
-      })}
+      <div className="scarf-track">
+        {segs.map((id, i) => {
+          const [a, b] = team(id).colors;
+          return <span key={i} style={{ backgroundImage: `repeating-linear-gradient(-45deg, ${a} 0 10px, ${b} 10px 20px)` }} />;
+        })}
+      </div>
     </div>
   );
 }
