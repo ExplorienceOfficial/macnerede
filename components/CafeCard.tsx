@@ -2,10 +2,10 @@
 
 import Link from 'next/link';
 import { motion } from 'motion/react';
-import { Info, Navigation, Star, Ticket, Trees, Tv, Volume2, VolumeX } from 'lucide-react';
+import { Info, Navigation, Phone, Star, Ticket, Trees, Tv, Volume2, VolumeX } from 'lucide-react';
 import { FanBadge, KindIcon } from './bits';
 import { HookahIcon, PintIcon } from './art';
-import { directionsLink, tl } from '@/lib/hooks';
+import { directionsLink, formatPhone, telLink, tl } from '@/lib/hooks';
 import { districtName } from '@/lib/places';
 import type { Broadcast, Cafe } from '@/lib/types';
 
@@ -133,7 +133,10 @@ export default function CafeCard({ cafe, b, index, active, onReserve, onFocus }:
         <motion.button className="btn btn-primary" disabled={left <= 0} onClick={() => onReserve(cafe.id)} whileTap={{ scale: 0.95 }}>
           <Ticket size={16} /> Yerini ayırt
         </motion.button>
-        <button className="btn btn-soft" onClick={() => onFocus(cafe.id)}>
+        <a className="btn btn-soft" href={telLink(cafe.phone)} title={formatPhone(cafe.phone)}>
+          <Phone size={15} /> Ara
+        </a>
+        <button className="btn btn-ghost" onClick={() => onFocus(cafe.id)}>
           Haritada
         </button>
         <a className="btn btn-ghost" href={directionsLink(cafe.lat, cafe.lng)} target="_blank" rel="noopener noreferrer">

@@ -3,15 +3,17 @@
 import { AnimatePresence, motion } from 'motion/react';
 import { useEffect, useState } from 'react';
 import confetti from 'canvas-confetti';
-import { MessageCircle, Minus, Plus, Scissors, X } from 'lucide-react';
+import { MessageCircle, Minus, Phone, Plus, Scissors, X } from 'lucide-react';
 import Crest from './Crest';
 import { Barcode } from './art';
-import { createReservation } from '@/lib/db';
-import { waLink } from '@/lib/hooks';
+import Link from 'next/link';
+import AuthPanel from './AuthPanel';
+import { createReservation, saveCustomer } from '@/lib/db';
+import { formatPhone, telLink, useAccount, waLink } from '@/lib/hooks';
 import { districtName } from '@/lib/places';
 import { team } from '@/lib/teams';
 import { compLabel, compLogo, type MatchInfo } from '@/lib/fixtures';
-import type { Broadcast, Cafe, Reservation } from '@/lib/types';
+import { POLICY, type Broadcast, type Cafe, type Reservation } from '@/lib/types';
 
 interface Props {
   cafe: Cafe;
@@ -24,8 +26,9 @@ interface Props {
 type Step = 'form' | 'printing' | 'done';
 
 export default function ReserveSheet({ cafe, b, match, onClose, onReserved }: Props) {
+  const account = useAccount();
   const left = Math.max(0, b.seats - b.reserved);
-  const max = Math.min(20, left);
+  const max = Math.min(POLICY.maxPeople, left);
   const [step, setStep] = useState<Step>('form');
   const [people, setPeople] = useState(Math.min(2, max));
   const [dir, setDir] = useState(1);
@@ -33,15 +36,15 @@ export default function ReserveSheet({ cafe, b, match, onClose, onReserved }: Pr
   const [phone, setPhone] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [res, setRes] = useState<Reservation | null>(null);
+  const started = Date.now() >= new Date(match.kickoffISO).getTime();
 
-  // İsim/telefonu bir sonraki rezervasyon için hatırla
+  // Ad ve telefon müşteri profilinden gelir
   useEffect(() => {
-    try {
-      const saved = JSON.parse(localStorage.getItem('mn.me') ?? '{}');
-      if (saved.name) setName(saved.name);
-      if (saved.phone) setPhone(saved.phone);
-    } catch {}
-  }, []);
+    if (account?.customer) {
+      setName((n) => n || account.customer!.name);
+      setPhone((p) => p || account.customer!.phone);
+    }
+  }, [account?.customer]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && step !== 'printing' && onClose();
@@ -61,16 +64,25 @@ export default function ReserveSheet({ cafe, b, match, onClose, onReserved }: Pr
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
+    if (!account || account.role !== 'customer') return;
     const digits = phone.replace(/\D/g, '');
     if (name.trim().length < 2) return setError('Rezervasyon için adını yaz.');
     if (digits.length < 10) return setError('Telefon numarası eksik görünüyor.');
     setError(null);
     setStep('printing');
     try {
-      const r = await createReservation({ cafeId: cafe.id, matchId: match.id, name: name.trim(), phone: digits, people });
-      try {
-        localStorage.setItem('mn.me', JSON.stringify({ name: name.trim(), phone }));
-      } catch {}
+      // Profil eksikse (Google ile giriş) ya da değiştiyse kaydet
+      const c = account.customer;
+      if (!c || c.name !== name.trim() || c.phone !== digits) await saveCustomer({ uid: account.uid, email: account.email, name, phone: digits });
+      const r = await createReservation({
+        cafeId: cafe.id,
+        matchId: match.id,
+        userId: account.uid,
+        name: name.trim(),
+        phone: digits,
+        people,
+        kickoff: match.kickoffISO,
+      });
       setRes(r);
       onReserved(people);
       setStep('done');
@@ -107,11 +119,14 @@ export default function ReserveSheet({ cafe, b, match, onClose, onReserved }: Pr
 
         <AnimatePresence mode="wait" initial={false}>
           {step !== 'done' ? (
-            <motion.form key="form" onSubmit={submit} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.2 }}>
+            <motion.div key="form" exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.2 }}>
               <h2>{cafe.name}</h2>
               <p className="sheet-sub">
                 {districtName(cafe.city, cafe.district)} · {cafe.address}
               </p>
+              <a className="call-line" href={telLink(cafe.phone)}>
+                <Phone size={14} /> {formatPhone(cafe.phone)} <span>· Ara</span>
+              </a>
 
               <div className="mini-match">
                 <Crest id={match.home} size={24} />
@@ -124,6 +139,16 @@ export default function ReserveSheet({ cafe, b, match, onClose, onReserved }: Pr
                 </span>
               </div>
 
+              {started ? (
+                <div className="form-error">Maç başladı, bu maç için rezervasyon kapandı. Yer sormak için mekanı arayabilirsin.</div>
+              ) : account === undefined ? (
+                <div className="skeleton" style={{ height: 220 }} />
+              ) : !account ? (
+                <AuthPanel compact intro="Yer ayırtmak için hesabınla gir ya da 30 saniyede hesap oluştur. Rezervasyonlarını Hesabım’dan görür, istersen iptal edersin." />
+              ) : account.role === 'cafe' ? (
+                <div className="form-error">Mekan hesabıyla rezervasyon yapılamaz. Taraftar olarak ayırtmak için mekan hesabından çıkış yap.</div>
+              ) : (
+              <form onSubmit={submit}>
               <div className="people">
                 <div className="people-label">
                   Kaç kişisiniz?
@@ -188,8 +213,19 @@ export default function ReserveSheet({ cafe, b, match, onClose, onReserved }: Pr
                   `${people} kişilik yer ayırt`
                 )}
               </button>
-              <p className="legal">Bilgilerin sadece {cafe.name} ile paylaşılır. Ücret mekanda ödenir.</p>
-            </motion.form>
+              <ul className="policy">
+                <li>
+                  <b>Ücretsiz iptal:</b> maça {POLICY.cancelCutoffMin / 60} saat kalana kadar, <Link href="/hesap">Hesabım</Link>’dan. Son 1 saatte iptal yok.
+                </li>
+                <li>Bir maç için tek aktif rezervasyon, en fazla {POLICY.maxPeople} kişi.</li>
+                <li>
+                  Gelmezsen mekan “gelmedi” işaretler; {POLICY.noShowWindowDays} günde {POLICY.noShowLimit} kez olursa {POLICY.banDays} gün rezervasyon yapamazsın.
+                </li>
+              </ul>
+              <p className="legal">Adın ve telefonun sadece {cafe.name} ile paylaşılır. Ücret mekanda ödenir.</p>
+              </form>
+              )}
+            </motion.div>
           ) : (
             res && <Done key="done" res={res} cafe={cafe} match={match} onClose={onClose} />
           )}
@@ -295,9 +331,18 @@ function Done({ res, cafe, match, onClose }: { res: Reservation; cafe: Cafe; mat
         <a className="btn btn-wa btn-lg btn-block" href={wa} target="_blank" rel="noopener noreferrer">
           <MessageCircle size={18} /> Mekana WhatsApp’tan da haber ver
         </a>
+        <div className="row-2" style={{ gap: 8 }}>
+          <a className="btn btn-ghost btn-lg" href={telLink(cafe.phone)}>
+            <Phone size={17} /> Mekanı ara
+          </a>
+          <Link className="btn btn-ghost btn-lg" href="/hesap">
+            Rezervasyonlarım
+          </Link>
+        </div>
         <button className="btn btn-soft btn-lg btn-block" onClick={onClose}>
           Tamam
         </button>
+        <p className="legal">Maça 1 saat kalana kadar Hesabım’dan ücretsiz iptal edebilirsin.</p>
       </motion.div>
     </motion.div>
   );

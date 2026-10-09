@@ -3,14 +3,14 @@
 import Link from 'next/link';
 import { AnimatePresence, motion } from 'motion/react';
 import { useEffect, useState } from 'react';
-import { ChevronLeft, ChevronRight, Navigation, Star, Ticket, Volume2, VolumeX, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Navigation, Phone, Star, Ticket, Volume2, VolumeX, X } from 'lucide-react';
 import Crest from './Crest';
 import CafeMap from './CafeMap';
 import ReserveSheet from './ReserveSheet';
 import { FanBadge, KindIcon } from './bits';
 import { TvIllustration } from './art';
 import { getCafe, listCafeBroadcasts, listPhotos } from '@/lib/db';
-import { directionsLink, tl } from '@/lib/hooks';
+import { directionsLink, formatPhone, telLink, tl } from '@/lib/hooks';
 import { cityById, districtName } from '@/lib/places';
 import { team } from '@/lib/teams';
 import type { Broadcast, Cafe, CafePhoto } from '@/lib/types';
@@ -82,6 +82,7 @@ export default function CafeView({ id, matches }: { id: string; matches: MatchIn
           </div>
           <dl className="spec-list">
             <div><dt>Adres</dt><dd>{cafe.address}</dd></div>
+            <div><dt>Telefon</dt><dd><a href={telLink(cafe.phone)} style={{ color: 'var(--accent)' }}>{formatPhone(cafe.phone)}</a></dd></div>
             <div><dt>Ekranlar</dt><dd>{cafe.screens}</dd></div>
             <div><dt>Kapasite</dt><dd>{cafe.capacity} kişi</dd></div>
             <div><dt>Kişi başı</dt><dd>{cafe.priceMin}–{cafe.priceMax} TL</dd></div>
@@ -94,9 +95,14 @@ export default function CafeView({ id, matches }: { id: string; matches: MatchIn
               </dd>
             </div>
           </dl>
-          <a className="btn btn-ghost" style={{ marginTop: 16 }} href={directionsLink(cafe.lat, cafe.lng)} target="_blank" rel="noopener noreferrer">
-            <Navigation size={15} /> Yol tarifi al
-          </a>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 16 }}>
+            <a className="btn btn-primary" href={telLink(cafe.phone)}>
+              <Phone size={15} /> Mekanı ara
+            </a>
+            <a className="btn btn-ghost" href={directionsLink(cafe.lat, cafe.lng)} target="_blank" rel="noopener noreferrer">
+              <Navigation size={15} /> Yol tarifi al
+            </a>
+          </div>
           {photos.length > 0 && (
             <>
               <h2 style={{ fontSize: 17, fontWeight: 800, marginTop: 24 }}>Mekandan fotoğraflar</h2>

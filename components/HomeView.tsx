@@ -8,6 +8,8 @@ import Crest from './Crest';
 import Countdown from './Countdown';
 import MatchCard from './MatchCard';
 import { CityPicker, CompBadge, StadiumBackdrop } from './bits';
+import { PlayerAvatars } from './PlayerStrip';
+import { scenes } from '@/lib/scenes';
 import { Jersey, PitchLines, TvIllustration } from './art';
 import { weekdayLabel, type MatchInfo } from '@/lib/fixtures';
 import { BIG4, stadiumFor, team, type BigTeam } from '@/lib/teams';
@@ -64,6 +66,7 @@ export default function HomeView({ matches, weekText, nextWeek }: Props) {
 
             <div className="pick-label">Takımın</div>
             <TeamPicker value={teamPick} onChange={setTeamPick} />
+            <PlayerAvatars pick={teamPick} />
 
             <div className="pick-label">Şehrin</div>
             <CityPicker value={city} onChange={setCity} counts={loading ? undefined : cityCounts} />
@@ -214,12 +217,18 @@ function NextMatch({ m, count, city }: { m: MatchInfo; count: number | null; cit
 function VenueBand() {
   return (
     <motion.section
-      className="venue-band"
+      className="venue-band with-photo"
       initial={{ opacity: 0, y: 30 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: '-80px' }}
       transition={{ duration: 0.5 }}
     >
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img className="scene-photo" src={scenes.crowd.photo} alt="" loading="lazy" />
+      <span className="stadium-shade" aria-hidden style={{ background: 'linear-gradient(100deg, rgba(8,12,10,.92) 30%, rgba(8,12,10,.55))' }} />
+      <a className="photo-credit" href={scenes.crowd.source} target="_blank" rel="noopener noreferrer">
+        Foto: {scenes.crowd.credit}, {scenes.crowd.license}
+      </a>
       <div>
         <h2>Mekanın maç veriyorsa, masaları biz dolduralım.</h2>
         <p>

@@ -23,7 +23,7 @@ import {
 import { GoogleAuthProvider, createUserWithEmailAndPassword, onAuthStateChanged, sendPasswordResetEmail, signInWithEmailAndPassword, signInWithPopup, signOut } from 'firebase/auth';
 import { creatorAuth, firebase, firebaseEnabled } from './firebase';
 import { demoBroadcasts, demoCafes } from './demo-seed';
-import { CODE_PATTERN, MAX_PHOTOS, TRIAL_DAYS, type ActivationCode, type Broadcast, type Cafe, type CafePhoto, type PlanId, type Reservation } from './types';
+import { CODE_PATTERN, MAX_PHOTOS, PERIODS, POLICY, TRIAL_DAYS, periodPrice, type ActivationCode, type Broadcast, type Cafe, type CafePhoto, type Customer, type Payment, type PeriodId, type PlanId, type Reservation } from './types';
 
 /** Aktivasyon kodlarının varsayılan süresi (yönetim sayfası da bunu kullanır) */
 export const CODE_DAYS = 365;
@@ -56,7 +56,7 @@ function cafeFromDoc(d: DocumentSnapshot): Cafe {
 }
 
 // ---------------- demo depolama ----------------
-const K = { cafes: 'mn.cafes', bc: 'mn.broadcasts', res: 'mn.reservations', acc: 'mn.accounts', session: 'mn.session', codes: 'mn.codes', photos: 'mn.photos', adminCodes: 'mn.adminCodes' };
+const K = { cafes: 'mn.cafes', bc: 'mn.broadcasts', res: 'mn.reservations', acc: 'mn.accounts', session: 'mn.session', codes: 'mn.codes', photos: 'mn.photos', adminCodes: 'mn.adminCodes', cust: 'mn.cust', custAcc: 'mn.custAccounts', custProfiles: 'mn.custProfiles', payments: 'mn.payments' };
 const SESSION_EVENT = 'mn-session';
 
 function lsGet<T>(key: string, fallback: T): T {
@@ -158,7 +158,7 @@ export async function listBroadcasts(matchIds: string[]): Promise<Broadcast[]> {
   const out: Broadcast[] = [];
   for (let i = 0; i < matchIds.length; i += 30) {
     const snap = await getDocs(query(collection(db, 'broadcasts'), where('matchId', 'in', matchIds.slice(i, i + 30))));
-    snap.forEach((d) => out.push(d.data() as Broadcast));
+    snap.forEach((d) => out.push(bcFromDoc(d)));
   }
   return out;
 }
@@ -166,7 +166,7 @@ export async function listBroadcasts(matchIds: string[]): Promise<Broadcast[]> {
 export async function listCafeBroadcasts(cafeId: string): Promise<Broadcast[]> {
   if (demoMode) return demo.broadcasts().filter((b) => b.cafeId === cafeId);
   const snap = await getDocs(query(collection(firebase().db, 'broadcasts'), where('cafeId', '==', cafeId)));
-  return snap.docs.map((d) => d.data() as Broadcast);
+  return snap.docs.map(bcFromDoc);
 }
 
 export async function saveBroadcast(b: Broadcast) {
@@ -175,9 +175,24 @@ export async function saveBroadcast(b: Broadcast) {
     demo.putBroadcast(bId(b.cafeId, b.matchId), b);
     return;
   }
-  const clean = Object.fromEntries(Object.entries(b).filter(([, v]) => v !== undefined));
+  const clean: Record<string, unknown> = Object.fromEntries(Object.entries(b).filter(([, v]) => v !== undefined));
+  if (b.kickoff) clean.kickoff = Timestamp.fromDate(new Date(b.kickoff));
   await setDoc(doc(firebase().db, 'broadcasts', bId(b.cafeId, b.matchId)), clean);
 }
+
+function bcFromDoc(d: DocumentSnapshot): Broadcast {
+  const x = d.data() as Broadcast & { kickoff?: unknown };
+  return { ...x, kickoff: x.kickoff ? iso(x.kickoff) : undefined };
+}
+
+function resFromDoc(d: DocumentSnapshot): Reservation {
+  const x = d.data() as Omit<Reservation, 'id'> & { kickoff?: unknown; cancelledAt?: unknown };
+  return { ...x, id: d.id, kickoff: x.kickoff ? iso(x.kickoff) : undefined, cancelledAt: x.cancelledAt ? iso(x.cancelledAt) : undefined };
+}
+
+/** İptal için son an: maça 1 saat kalana kadar */
+export const cancelDeadline = (kickoffISO: string) => new Date(new Date(kickoffISO).getTime() - POLICY.cancelCutoffMin * 60000);
+export const canCancel = (r: Reservation, now = Date.now()) => r.status === 'new' && !!r.kickoff && now < cancelDeadline(r.kickoff).getTime();
 
 export async function removeBroadcast(cafeId: string, matchId: string) {
   if (demoMode) {
@@ -192,27 +207,37 @@ export async function removeBroadcast(cafeId: string, matchId: string) {
 export interface ReservationInput {
   cafeId: string;
   matchId: string;
+  /** Rezervasyonu yapan müşteri (giriş zorunlu) */
+  userId: string;
   name: string;
   phone: string;
   people: number;
+  /** Maçın başlama saati (ISO) */
+  kickoff: string;
 }
 
+/**
+ * Yer ayırır. Kurallar: maç başlamadıysa, en fazla 12 kişi, yer varsa, müşterinin bu maç için başka aktif rezervasyonu yoksa
+ * ve son günlerde fazla "gelmedi" almadıysa. Sayaç ile rezervasyon aynı işlemde yazılır.
+ */
 export async function createReservation(input: ReservationInput): Promise<Reservation> {
-  const r: Reservation = {
-    ...input,
-    id: '',
-    code: makeCode(),
-    createdAt: new Date().toISOString(),
-    status: 'new',
-  };
+  if (Date.now() >= new Date(input.kickoff).getTime()) throw new Error('Maç başladı, rezervasyon kapandı.');
+  if (input.people < 1 || input.people > POLICY.maxPeople) throw new Error(`Bir rezervasyon en fazla ${POLICY.maxPeople} kişilik olabilir.`);
+  const mine = await listMyReservations(input.userId);
+  const ban = noShowBan(mine);
+  if (ban) throw new Error(`Son ${POLICY.noShowWindowDays} günde ${POLICY.noShowLimit} kez rezervasyona gelmediğin için ${ban} tarihine kadar yeni rezervasyon yapamazsın.`);
+  const active = mine.find((r) => r.matchId === input.matchId && r.status === 'new');
+  if (active) throw new Error('Bu maç için zaten aktif bir rezervasyonun var. Önce onu iptal etmen gerekiyor (Hesabım).');
+
+  const r: Reservation = { ...input, id: '', code: makeCode(), createdAt: new Date().toISOString(), status: 'new' };
 
   if (demoMode) {
     await wait(900);
     const b = demo.broadcasts().find((x) => x.cafeId === input.cafeId && x.matchId === input.matchId);
     if (!b) throw new Error('Bu mekan artık bu maçı vermiyor.');
     if (b.reserved + input.people > b.seats) throw new Error(`Bu maç için yalnızca ${b.seats - b.reserved} kişilik yer kaldı.`);
-    demo.putBroadcast(bId(b.cafeId, b.matchId), { ...b, reserved: b.reserved + input.people });
     r.id = r.code;
+    demo.putBroadcast(bId(b.cafeId, b.matchId), { ...b, reserved: b.reserved + input.people, lastRes: r.id });
     lsSet(K.res, [...demo.reservations(), r]);
     return r;
   }
@@ -226,11 +251,65 @@ export async function createReservation(input: ReservationInput): Promise<Reserv
     if (!snap.exists()) throw new Error('Bu mekan artık bu maçı vermiyor.');
     const b = snap.data() as Broadcast;
     if (b.reserved + input.people > b.seats) throw new Error(`Bu maç için yalnızca ${b.seats - b.reserved} kişilik yer kaldı.`);
-    tx.update(bRef, { reserved: b.reserved + input.people });
-    const { id: _id, ...data } = r;
-    tx.set(rRef, data);
+    tx.update(bRef, { reserved: b.reserved + input.people, lastRes: rRef.id });
+    const { id: _id, kickoff, ...data } = r;
+    tx.set(rRef, { ...data, kickoff: Timestamp.fromDate(new Date(kickoff!)) });
   });
   return r;
+}
+
+/** Müşterinin iptali: sadece maça 1 saat kalana kadar; boşalan yer sayaca geri döner */
+export async function cancelReservation(res: Reservation): Promise<void> {
+  if (!canCancel(res)) throw new Error(`Maça ${POLICY.cancelCutoffMin} dakikadan az kaldığı için bu rezervasyon artık iptal edilemez.`);
+  if (demoMode) {
+    await wait(500);
+    lsSet(K.res, demo.reservations().map((r) => (r.id === res.id ? { ...r, status: 'cancelled', cancelledAt: new Date().toISOString() } : r)));
+    const b = demo.broadcasts().find((x) => x.cafeId === res.cafeId && x.matchId === res.matchId);
+    if (b) demo.putBroadcast(bId(b.cafeId, b.matchId), { ...b, reserved: Math.max(0, b.reserved - res.people), lastRes: res.id });
+    return;
+  }
+  const { db } = firebase();
+  const bRef = doc(db, 'broadcasts', bId(res.cafeId, res.matchId));
+  const rRef = doc(db, 'reservations', res.id);
+  await runTransaction(db, async (tx) => {
+    const [bs, rs] = await Promise.all([tx.get(bRef), tx.get(rRef)]);
+    if (!rs.exists() || rs.get('status') !== 'new') throw new Error('Bu rezervasyon zaten değişmiş.');
+    const people = rs.get('people') as number;
+    tx.update(rRef, { status: 'cancelled', cancelledAt: serverTimestamp() });
+    if (bs.exists()) tx.update(bRef, { reserved: Math.max(0, (bs.get('reserved') as number) - people), lastRes: res.id });
+  });
+}
+
+/** Son 60 günde 2+ "gelmedi" → son gelmeme tarihinden itibaren 30 gün yasak (yasak bitiş tarihini döndürür) */
+export function noShowBan(mine: Reservation[], now = Date.now()): string | null {
+  const windowStart = now - POLICY.noShowWindowDays * 86400000;
+  const recent = mine.filter((r) => r.status === 'noshow' && new Date(r.kickoff ?? r.createdAt).getTime() > windowStart);
+  if (recent.length < POLICY.noShowLimit) return null;
+  const last = Math.max(...recent.map((r) => new Date(r.kickoff ?? r.createdAt).getTime()));
+  const until = last + POLICY.banDays * 86400000;
+  return until > now ? new Intl.DateTimeFormat('tr-TR', { day: 'numeric', month: 'long' }).format(new Date(until)) : null;
+}
+
+export async function listMyReservations(uid: string): Promise<Reservation[]> {
+  if (demoMode) return demo.reservations().filter((r) => r.userId === uid);
+  const snap = await getDocs(query(collection(firebase().db, 'reservations'), where('userId', '==', uid)));
+  return snap.docs.map(resFromDoc);
+}
+
+/** Müşterinin rezervasyonlarını canlı izler (mekan "geldi/gelmedi" işaretleyince anında görünür) */
+export function watchMyReservations(uid: string, cb: (list: Reservation[]) => void): () => void {
+  const sort = (l: Reservation[]) => l.sort((a, b) => (b.kickoff ?? b.createdAt).localeCompare(a.kickoff ?? a.createdAt));
+  if (demoMode) {
+    const fire = () => cb(sort(demo.reservations().filter((r) => r.userId === uid)));
+    fire();
+    const t = setInterval(fire, 4000);
+    return () => clearInterval(t);
+  }
+  return onSnapshot(
+    query(collection(firebase().db, 'reservations'), where('userId', '==', uid)),
+    (snap) => cb(sort(snap.docs.map(resFromDoc))),
+    (err) => console.error('[rezervasyonlarım]', err),
+  );
 }
 
 export async function listReservations(cafeId: string): Promise<Reservation[]> {
@@ -239,7 +318,7 @@ export async function listReservations(cafeId: string): Promise<Reservation[]> {
     return demo.reservations().filter((r) => r.cafeId === cafeId);
   }
   const snap = await getDocs(query(collection(firebase().db, 'reservations'), where('cafeId', '==', cafeId)));
-  return snap.docs.map((d) => ({ ...(d.data() as Omit<Reservation, 'id'>), id: d.id }));
+  return snap.docs.map(resFromDoc);
 }
 
 export async function setReservationStatus(id: string, status: Reservation['status']) {
@@ -372,6 +451,7 @@ export async function registerCafe(email: string, password: string, data: NewCaf
     if (ph) saved.push(ph);
   }
   if (cover && saved[0]) await updateDoc(doc(db, 'cafes', uid), { coverPhotoId: saved[0].id }).catch(() => {});
+  fireAuthRefresh(); // hesap artık "mekan": üst menü ve panel bunu hemen görsün
   return { ...cafe, coverPhotoId: saved[0]?.id ?? null };
 }
 
@@ -392,19 +472,48 @@ export async function login(email: string, password: string): Promise<string> {
 }
 
 export async function logout() {
-  if (demoMode) return setDemoSession(null);
+  if (demoMode) {
+    lsSet(K.session, null);
+    lsSet(K.cust, null);
+    fireSession();
+    return;
+  }
   await signOut(firebase().auth);
 }
 
+const fireSession = () => window.dispatchEvent(new Event(SESSION_EVENT));
 function setDemoSession(id: string | null) {
   lsSet(K.session, id);
-  window.dispatchEvent(new Event(SESSION_EVENT));
+  if (id) lsSet(K.cust, null);
+  fireSession();
+}
+function setDemoCustomer(uid: string | null) {
+  lsSet(K.cust, uid);
+  if (uid) lsSet(K.session, null);
+  fireSession();
 }
 
-/** Oturum açık mekanın id'si (yoksa null). Dönen fonksiyon dinlemeyi bırakır. */
-export function watchSession(cb: (cafeId: string | null) => void): () => void {
+// ---------------- hesap türü: mekan mı müşteri mi ----------------
+export type Role = 'cafe' | 'customer';
+export interface Account {
+  uid: string;
+  email: string;
+  role: Role;
+  /** Müşterinin profili (ad, telefon); henüz doldurmadıysa null */
+  customer: Customer | null;
+}
+
+/** Oturumdaki hesap. Mekan = cafes/{uid} belgesi olan hesap; diğer herkes müşteri. */
+export function watchAccount(cb: (a: Account | null) => void): () => void {
   if (demoMode) {
-    const fire = () => cb(lsGet<string | null>(K.session, null));
+    const fire = () => {
+      const cafeId = lsGet<string | null>(K.session, null);
+      if (cafeId) return cb({ uid: cafeId, email: '', role: 'cafe', customer: null });
+      const uid = lsGet<string | null>(K.cust, null);
+      if (!uid) return cb(null);
+      const c = lsGet<Record<string, Customer>>(K.custProfiles, {})[uid] ?? null;
+      cb({ uid, email: c?.email ?? '', role: 'customer', customer: c });
+    };
     fire();
     window.addEventListener(SESSION_EVENT, fire);
     window.addEventListener('storage', fire);
@@ -413,8 +522,105 @@ export function watchSession(cb: (cafeId: string | null) => void): () => void {
       window.removeEventListener('storage', fire);
     };
   }
-  // Sadece e-posta/şifre hesapları mekandır; Google ile giren yönetici mekan sayılmaz
-  return onAuthStateChanged(firebase().auth, (u) => cb(u && u.providerData.some((p) => p.providerId === 'password') ? u.uid : null));
+  const { auth, db } = firebase();
+  let seq = 0;
+  const resolve = async (u: typeof auth.currentUser) => {
+    const mine = ++seq;
+    if (!u) return cb(null);
+    const [cafe, prof] = await Promise.all([getDoc(doc(db, 'cafes', u.uid)).catch(() => null), getDoc(doc(db, 'users', u.uid)).catch(() => null)]);
+    if (mine !== seq) return;
+    if (cafe?.exists()) return cb({ uid: u.uid, email: u.email ?? '', role: 'cafe', customer: null });
+    const customer = prof?.exists() ? { uid: u.uid, email: u.email ?? '', name: String(prof.get('name') ?? ''), phone: String(prof.get('phone') ?? '') } : null;
+    cb({ uid: u.uid, email: u.email ?? '', role: 'customer', customer });
+  };
+  const unsub = onAuthStateChanged(auth, resolve);
+  // Profil ya da mekan kaydı yazılınca hesap türünü yeniden çöz
+  const refresh = () => resolve(auth.currentUser);
+  window.addEventListener(SESSION_EVENT, refresh);
+  return () => {
+    unsub();
+    window.removeEventListener(SESSION_EVENT, refresh);
+  };
+}
+
+/** Mekan oturumu: oturumdaki hesap mekansa id'si, değilse null */
+export function watchSession(cb: (cafeId: string | null) => void): () => void {
+  return watchAccount((a) => cb(a?.role === 'cafe' ? a.uid : null));
+}
+
+// ---------------- müşteri hesapları ----------------
+const cleanPhone = (p: string) => p.replace(/\D/g, '');
+
+function checkCustomer(name: string, phone: string) {
+  if (name.trim().length < 2) throw new Error('Adını ve soyadını yaz.');
+  if (cleanPhone(phone).length < 10) throw new Error('Telefon numarası eksik görünüyor (mekan seni arayabilsin diye gerekli).');
+}
+
+export async function customerRegister(email: string, password: string, name: string, phone: string): Promise<void> {
+  checkCustomer(name, phone);
+  if (password.length < 6) throw new Error('Şifre en az 6 karakter olmalı.');
+  if (demoMode) {
+    await wait(500);
+    const all = lsGet<{ email: string; pass: string; uid: string }[]>(K.custAcc, []);
+    const taken = all.some((a) => a.email === email.toLowerCase()) || lsGet<{ email: string }[]>(K.acc, []).some((a) => a.email === email.toLowerCase());
+    if (taken) throw new Error('Bu e-posta ile zaten bir hesap var. Giriş yapmayı dene.');
+    const uid = `cust-${Date.now().toString(36)}`;
+    lsSet(K.custAcc, [...all, { email: email.toLowerCase(), pass: weakHash(password), uid }]);
+    lsSet(K.custProfiles, { ...lsGet<Record<string, Customer>>(K.custProfiles, {}), [uid]: { uid, email, name: name.trim(), phone: cleanPhone(phone) } });
+    setDemoCustomer(uid);
+    return;
+  }
+  const { auth, db } = firebase();
+  try {
+    const cred = await createUserWithEmailAndPassword(auth, email, password);
+    await setDoc(doc(db, 'users', cred.user.uid), { name: name.trim(), phone: cleanPhone(phone), email, createdAt: serverTimestamp() });
+    fireAuthRefresh();
+  } catch (e) {
+    throw authError(e);
+  }
+}
+
+export async function customerLogin(email: string, password: string): Promise<void> {
+  if (demoMode) {
+    await wait(400);
+    const acc = lsGet<{ email: string; pass: string; uid: string }[]>(K.custAcc, []).find((a) => a.email === email.toLowerCase());
+    if (!acc || acc.pass !== weakHash(password)) throw new Error('E-posta ya da şifre hatalı.');
+    setDemoCustomer(acc.uid);
+    return;
+  }
+  try {
+    await signInWithEmailAndPassword(firebase().auth, email, password);
+  } catch (e) {
+    throw authError(e);
+  }
+}
+
+export async function customerGoogle(): Promise<void> {
+  if (demoMode) throw new Error('Demo modunda Google ile giriş yok; e-posta ile hesap oluştur.');
+  try {
+    await signInWithPopup(firebase().auth, new GoogleAuthProvider());
+  } catch (e) {
+    if ((e as { code?: string })?.code === 'auth/popup-closed-by-user') return;
+    throw authError(e);
+  }
+}
+
+/** Müşteri profili (Google ile girenler için ad/telefon tamamlama ya da düzenleme) */
+export async function saveCustomer(c: Customer): Promise<void> {
+  checkCustomer(c.name, c.phone);
+  const clean = { ...c, name: c.name.trim(), phone: cleanPhone(c.phone) };
+  if (demoMode) {
+    lsSet(K.custProfiles, { ...lsGet<Record<string, Customer>>(K.custProfiles, {}), [c.uid]: clean });
+    fireSession();
+    return;
+  }
+  await setDoc(doc(firebase().db, 'users', c.uid), { name: clean.name, phone: clean.phone, email: c.email, updatedAt: serverTimestamp() }, { merge: true });
+  fireAuthRefresh();
+}
+
+/** Profil yazıldıktan sonra watchAccount dinleyicilerini yeniden çalıştır */
+function fireAuthRefresh() {
+  window.dispatchEvent(new Event(SESSION_EVENT));
 }
 
 // ---------------- fotoğraflar ----------------
@@ -470,7 +676,7 @@ export function watchReservations(cafeId: string, cb: (list: Reservation[]) => v
   }
   return onSnapshot(
     query(collection(firebase().db, 'reservations'), where('cafeId', '==', cafeId)),
-    (snap) => cb(sort(snap.docs.map((d) => ({ ...(d.data() as Omit<Reservation, 'id'>), id: d.id })))),
+    (snap) => cb(sort(snap.docs.map(resFromDoc))),
     (err) => console.error('[rezervasyon]', err),
   );
 }
@@ -642,7 +848,48 @@ export async function adminListReservations(matchIds: string[]): Promise<Reserva
   const out: Reservation[] = [];
   for (let i = 0; i < matchIds.length; i += 30) {
     const snap = await getDocs(query(collection(db, 'reservations'), where('matchId', 'in', matchIds.slice(i, i + 30))));
-    snap.forEach((d) => out.push({ ...(d.data() as Omit<Reservation, 'id'>), id: d.id }));
+    snap.forEach((d) => out.push(resFromDoc(d)));
   }
   return out;
+}
+
+// ---------------- üyelik ödemesi (iyzico) ----------------
+export type PaymentStart = { redirect: string } | { demo: Cafe };
+
+/** Ödemeyi başlatır: gerçek modda iyzico ödeme sayfasına yönlendirme adresi, demo modunda anında "ödendi" */
+export async function startPayment(cafe: Cafe, plan: PlanId, period: PeriodId): Promise<PaymentStart> {
+  if (demoMode) {
+    await wait(1200);
+    const now = Date.now();
+    const end = new Date(cafe.membership.renewsAt).getTime();
+    const renews = new Date(cafe.membership.status !== 'canceled' && end > now ? end : now);
+    renews.setMonth(renews.getMonth() + PERIODS[period].months);
+    const next: Cafe = { ...cafe, plan, membership: { status: 'active', startedAt: new Date().toISOString(), renewsAt: renews.toISOString() } };
+    lsSet(K.cafes, lsGet<Cafe[]>(K.cafes, []).map((c) => (c.id === cafe.id ? next : c)));
+    const pay: Payment = { id: `pay-${Date.now()}`, cafeId: cafe.id, cafeName: cafe.name, plan, months: PERIODS[period].months, amount: periodPrice(plan, period), status: 'paid', createdAt: new Date().toISOString() };
+    lsSet(K.payments, [...lsGet<Payment[]>(K.payments, []), pay]);
+    return { demo: next };
+  }
+  const user = firebase().auth.currentUser;
+  if (!user) throw new Error('Önce mekan hesabınla giriş yap.');
+  const res = await fetch('/api/odeme/baslat', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await user.getIdToken()}` },
+    body: JSON.stringify({ plan, period }),
+  });
+  const data = (await res.json().catch(() => ({}))) as { paymentPageUrl?: string; error?: string };
+  if (!res.ok || !data.paymentPageUrl) throw new Error(data.error || 'Ödeme başlatılamadı.');
+  return { redirect: data.paymentPageUrl };
+}
+
+/** Yönetici: tüm ödemeler (son ödeme en üstte) */
+export async function adminListPayments(): Promise<Payment[]> {
+  if (demoMode) return [...lsGet<Payment[]>(K.payments, [])].reverse();
+  const snap = await getDocs(collection(firebase().db, 'payments'));
+  return snap.docs
+    .map((d) => {
+      const x = d.data();
+      return { id: d.id, cafeId: x.cafeId, cafeName: x.cafeName, plan: x.plan, months: x.months, amount: x.amount, status: x.status, paymentId: x.paymentId, createdAt: iso(x.createdAt) } as Payment;
+    })
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }

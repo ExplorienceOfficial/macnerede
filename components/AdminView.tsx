@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { AnimatePresence, motion } from 'motion/react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { CalendarDays, Check, Copy, ExternalLink, FileUp, KeyRound, LogOut, MessageCircle, RefreshCw, Search, ShieldCheck, Store, UserPlus } from 'lucide-react';
+import { CalendarDays, Check, CreditCard, Copy, ExternalLink, FileUp, KeyRound, LogOut, MessageCircle, RefreshCw, Search, ShieldCheck, Store, UserPlus } from 'lucide-react';
 import Crest from './Crest';
 import LocationPicker, { type LatLng } from './LocationPicker';
 import { CompBadge, KindIcon } from './bits';
@@ -13,6 +13,7 @@ import {
   adminCreateCafe,
   adminListCafes,
   adminListCodes,
+  adminListPayments,
   adminListReservations,
   adminSetMembership,
   adminSignIn,
@@ -25,14 +26,16 @@ import {
 } from '@/lib/db';
 import { cities, cityById, districtById, districtName } from '@/lib/places';
 import { BIG4, team, type BigTeam } from '@/lib/teams';
-import { CAFE_KINDS, plans, type ActivationCode, type Broadcast, type Cafe, type CafeKind, type PlanId, type Reservation } from '@/lib/types';
+import { CAFE_KINDS, plans, type Payment, type ActivationCode, type Broadcast, type Cafe, type CafeKind, type PlanId, type Reservation } from '@/lib/types';
 import type { MatchInfo } from '@/lib/fixtures';
+import { tl } from '@/lib/hooks';
 
-type Tab = 'hafta' | 'mekanlar' | 'yeni' | 'kodlar';
+type Tab = 'hafta' | 'mekanlar' | 'yeni' | 'odemeler' | 'kodlar';
 const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
   { id: 'hafta', label: 'Bu hafta', icon: <CalendarDays size={15} /> },
   { id: 'mekanlar', label: 'Mekanlar', icon: <Store size={15} /> },
   { id: 'yeni', label: 'Yeni mekan', icon: <UserPlus size={15} /> },
+  { id: 'odemeler', label: 'Ödemeler', icon: <CreditCard size={15} /> },
   { id: 'kodlar', label: 'Kodlar', icon: <KeyRound size={15} /> },
 ];
 
@@ -123,6 +126,7 @@ export default function AdminView({ matches, weekText }: { matches: MatchInfo[];
           {tab === 'hafta' && <WeekTab matches={matches} weekText={weekText} cafes={cafes} />}
           {tab === 'mekanlar' && <CafesTab cafes={cafes} onChange={(c) => setCafes((all) => (all ?? []).map((x) => (x.id === c.id ? c : x)))} onReload={loadCafes} />}
           {tab === 'yeni' && <NewCafeTab onCreated={(c) => setCafes((all) => [c, ...(all ?? [])])} />}
+          {tab === 'odemeler' && <PaymentsTab />}
           {tab === 'kodlar' && <CodesTab cafes={cafes} />}
         </motion.div>
       </AnimatePresence>
@@ -857,6 +861,86 @@ function CodesTab({ cafes }: { cafes: Cafe[] | null }) {
                           {copied === c.code ? <Check size={15} /> : <Copy size={15} />}
                         </button>
                       )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+    </>
+  );
+}
+
+// ---------------- Ödemeler ----------------
+function PaymentsTab() {
+  const [list, setList] = useState<Payment[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    adminListPayments()
+      .then(setList)
+      .catch((e) => setError(friendly(e)));
+  }, []);
+  if (error) return <div className="form-error">{error}</div>;
+  const paid = (list ?? []).filter((p) => p.status === 'paid');
+  const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).getTime();
+  const thisMonth = paid.filter((p) => new Date(p.createdAt).getTime() >= monthStart);
+  const sum = (l: Payment[]) => l.reduce((s, p) => s + p.amount, 0);
+  const statusText: Record<Payment['status'], string> = { paid: 'Ödendi', pending: 'Bekliyor', failed: 'Başarısız' };
+
+  return (
+    <>
+      <div className="stats">
+        <div className="card stat-tile hl">
+          <b>{list ? tl(sum(thisMonth)) : '…'}</b>
+          <span>Bu ay tahsilat</span>
+        </div>
+        <div className="card stat-tile">
+          <b>{list ? tl(sum(paid)) : '…'}</b>
+          <span>Toplam tahsilat</span>
+        </div>
+        <div className="card stat-tile">
+          <b>{list ? paid.length : '…'}</b>
+          <span>Başarılı ödeme</span>
+        </div>
+        <div className="card stat-tile">
+          <b>{list ? new Set(paid.map((p) => p.cafeId)).size : '…'}</b>
+          <span>Ödeyen mekan</span>
+        </div>
+      </div>
+      <section className="card panel-card">
+        <h2>Ödemeler</h2>
+        <p>iyzico üzerinden gelen üyelik ödemeleri. Başarılı ödeme mekanın üyeliğini otomatik uzatır.</p>
+        {list === null ? (
+          <div className="skeleton" style={{ height: 160 }} />
+        ) : list.length === 0 ? (
+          <p className="faint">Henüz ödeme yok.</p>
+        ) : (
+          <div style={{ overflowX: 'auto' }}>
+            <table className="admin-table">
+              <thead>
+                <tr>
+                  <th>Tarih</th>
+                  <th>Mekan</th>
+                  <th>Plan</th>
+                  <th>Süre</th>
+                  <th>Tutar</th>
+                  <th>Durum</th>
+                </tr>
+              </thead>
+              <tbody>
+                {list.map((p) => (
+                  <tr key={p.id}>
+                    <td className="faint">{fmtDate(p.createdAt)}</td>
+                    <td>{p.cafeName}</td>
+                    <td>{plans[p.plan]?.name ?? p.plan}</td>
+                    <td>{p.months} ay</td>
+                    <td>
+                      <b>{tl(p.amount)}</b>
+                    </td>
+                    <td>
+                      <span className={`ac-status ${p.status === 'paid' ? 'ok' : p.status === 'failed' ? 'off' : 'warn'}`}>{statusText[p.status]}</span>
                     </td>
                   </tr>
                 ))}

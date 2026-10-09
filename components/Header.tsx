@@ -1,14 +1,13 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { UserRound } from 'lucide-react';
 import { LogoMark, ScarfStripe } from './art';
 import ThemeToggle from './ThemeToggle';
-import { watchSession } from '@/lib/db';
+import { useAccount } from '@/lib/hooks';
 
 export default function Header() {
-  const [session, setSession] = useState<string | null>(null);
-  useEffect(() => watchSession(setSession), []);
+  const account = useAccount();
 
   return (
     <header className="site-header">
@@ -21,12 +20,21 @@ export default function Header() {
         <nav className="nav">
           <ThemeToggle />
           <Link href="/" className="link">Bu hafta</Link>
-          {session ? (
+          {account?.role === 'cafe' ? (
             <Link href="/panel" className="btn btn-soft btn-sm">Mekan paneli</Link>
+          ) : account?.role === 'customer' ? (
+            <>
+              <Link href="/kayit" className="link">Mekanını ekle</Link>
+              <Link href="/hesap" className="btn btn-soft btn-sm">
+                <UserRound size={15} /> {account.customer?.name.split(' ')[0] || 'Hesabım'}
+              </Link>
+            </>
           ) : (
             <>
-              <Link href="/giris" className="link">Mekan girişi</Link>
-              <Link href="/kayit" className="btn btn-primary btn-sm">Mekanını ekle</Link>
+              <Link href="/kayit" className="link">Mekanını ekle</Link>
+              <Link href="/hesap" className="btn btn-primary btn-sm">
+                <UserRound size={15} /> Giriş yap
+              </Link>
             </>
           )}
         </nav>

@@ -10,6 +10,7 @@ export default function Footer() {
           <span>Sadece anlaşmalı mekanlar listelenir. Bilgiler mekanların kendi beyanıdır.</span>
         </div>
         <div className="footer-links">
+          <Link href="/hesap">Hesabım</Link>
           <Link href="/kayit">Mekanını ekle</Link>
           <Link href="/giris">Mekan girişi</Link>
           <a href="mailto:merhaba@macnerede.com">İletişim</a>

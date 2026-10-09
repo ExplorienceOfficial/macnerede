@@ -13,6 +13,7 @@ import { FanBadge, KindIcon } from './bits';
 import { HookahIcon, LogoMark, PintIcon, PitchLines, TvIllustration } from './art';
 import { checkCode, demoMode, normalizeCode, registerCafe } from '@/lib/db';
 import { toCover, toPhoto } from '@/lib/images';
+import { scenes } from '@/lib/scenes';
 import { cities, cityById, districtById, districtName } from '@/lib/places';
 import { BIG4, team, type BigTeam } from '@/lib/teams';
 import { CAFE_KINDS, plans, TRIAL_DAYS, type Cafe, type CafeKind, type PlanId } from '@/lib/types';
@@ -186,6 +187,13 @@ export default function RegisterFlow({ weekMatchCount }: { weekMatchCount: numbe
   return (
     <div className="container reg-layout">
       <aside className="card reg-aside">
+        <div className="aside-photo">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={scenes.pub.photo} alt="Pub’da maç izleyen taraftarlar" />
+          <a className="photo-credit" href={scenes.pub.source} target="_blank" rel="noopener noreferrer">
+            Foto: {scenes.pub.credit}, {scenes.pub.license}
+          </a>
+        </div>
         <h1>Mekanını taraftara göster.</h1>
         <p>Maç günü masalarını doldurmak için kayıt ol, vereceğin maçları işaretle, rezervasyonları panelinden takip et.</p>
         <div className="stat-row">

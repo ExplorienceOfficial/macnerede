@@ -58,19 +58,49 @@ export interface Broadcast {
   reserved: number;
   reservationRequired: boolean;
   note?: string;
+  /** Maç başlama saati (ISO) — rezervasyonlar buna göre kapanır, iptal süresi hesaplanır */
+  kickoff?: string;
+  /** Son yer ayırma/iptal işleminin rezervasyon id'si (güvenlik kuralları sayacı doğrulasın diye) */
+  lastRes?: string;
 }
+
+export type ReservationStatus = 'new' | 'arrived' | 'noshow' | 'cancelled';
 
 export interface Reservation {
   id: string;
   cafeId: string;
   matchId: string;
+  /** Rezervasyonu yapan müşteri hesabı */
+  userId?: string;
   name: string;
   phone: string;
   people: number;
   code: string;
   createdAt: string;
-  status: 'new' | 'arrived' | 'cancelled';
+  /** Maç başlama saati (ISO) — iptal süresi buna göre hesaplanır */
+  kickoff?: string;
+  status: ReservationStatus;
+  cancelledAt?: string;
 }
+
+/** Müşteri (taraftar) profili */
+export interface Customer {
+  uid: string;
+  email: string;
+  name: string;
+  phone: string;
+}
+
+/** Rezervasyon kuralları — firestore.rules ile aynı tutulmalı */
+export const POLICY = {
+  maxPeople: 12,
+  /** Maça bu kadar dakika kala iptal kapanır */
+  cancelCutoffMin: 60,
+  /** Bu kadar "gelmedi" alan müşteri bir süre rezervasyon yapamaz */
+  noShowLimit: 2,
+  noShowWindowDays: 60,
+  banDays: 30,
+} as const;
 
 export const plans: Record<PlanId, { name: string; price: number; tagline: string; perks: string[] }> = {
   standart: {
@@ -86,6 +116,26 @@ export const plans: Record<PlanId, { name: string; price: number; tagline: strin
     perks: ['Standart’taki her şey', 'Tüm maçlarda “Öne çıkan” rozeti ve üst sıra', 'Haftalık rezervasyon raporu', 'Instagram için “Maç bizde” hikaye görseli'],
   },
 };
+
+/** Ödeme dönemleri: aylık ya da yıllık (yıllıkta 2 ay hediye — 10 ay fiyatına) */
+export const PERIODS = {
+  1: { label: '1 ay', months: 1, billedMonths: 1 },
+  12: { label: '12 ay', months: 12, billedMonths: 10 },
+} as const;
+export type PeriodId = keyof typeof PERIODS;
+export const periodPrice = (plan: PlanId, period: PeriodId) => plans[plan].price * PERIODS[period].billedMonths;
+
+export interface Payment {
+  id: string;
+  cafeId: string;
+  cafeName: string;
+  plan: PlanId;
+  months: number;
+  amount: number;
+  status: 'pending' | 'paid' | 'failed';
+  createdAt: string;
+  paymentId?: string;
+}
 
 export const TRIAL_DAYS = 14;
 export const MAX_PHOTOS = 8;

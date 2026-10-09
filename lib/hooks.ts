@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { listBroadcasts, listCafes } from './db';
+import { listBroadcasts, listCafes, watchAccount, type Account } from './db';
 import type { Broadcast, Cafe } from './types';
 
 /** localStorage'da hatırlanan küçük tercihler (şehir, takım) */
@@ -72,3 +72,19 @@ export function waLink(phone: string, text: string) {
 }
 
 export const directionsLink = (lat: number, lng: number) => `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
+
+/** Oturumdaki hesap: undefined = yükleniyor, null = giriş yok */
+export function useAccount() {
+  const [account, setAccount] = useState<Account | null | undefined>(undefined);
+  useEffect(() => watchAccount(setAccount), []);
+  return account;
+}
+
+export const telLink = (phone: string) => `tel:+${phone.startsWith('90') ? phone : `90${phone.replace(/^0/, '')}`}`;
+
+/** 905321234567 → 0532 123 45 67 */
+export function formatPhone(phone: string) {
+  const d = phone.replace(/\D/g, '').replace(/^90/, '');
+  if (d.length !== 10) return phone;
+  return `0${d.slice(0, 3)} ${d.slice(3, 6)} ${d.slice(6, 8)} ${d.slice(8)}`;
+}

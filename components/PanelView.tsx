@@ -4,10 +4,12 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { AnimatePresence, animate, motion } from 'motion/react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { BellRing, Check, CheckCheck, CreditCard, ExternalLink, Gift, LogOut, Phone } from 'lucide-react';
+import { BellRing, Check, CheckCheck, CreditCard, ExternalLink, Gift, LogOut, Phone, X } from 'lucide-react';
+import confetti from 'canvas-confetti';
 import Crest from './Crest';
 import PhotoPicker from './PhotoPicker';
 import ProfileEditor from './ProfileEditor';
+import PaymentSheet from './PaymentSheet';
 import {
   addPhoto,
   deletePhoto,
@@ -22,7 +24,7 @@ import {
   watchReservations,
   watchSession,
 } from '@/lib/db';
-import { tl } from '@/lib/hooks';
+import { formatPhone, telLink, tl } from '@/lib/hooks';
 import { toCover, toPhoto } from '@/lib/images';
 import { team } from '@/lib/teams';
 import { plans, type Broadcast, type Cafe, type CafePhoto, type Reservation } from '@/lib/types';
@@ -65,8 +67,9 @@ export default function PanelView({ matches, weekText }: { matches: MatchInfo[];
         if (added.length) {
           setFresh((f) => new Set([...f, ...added.map((r) => r.id)]));
           setToast(added[0]);
-          listCafeBroadcasts(cafeId).then(setBcs);
         }
+        // Yeni rezervasyon ya da iptal: doluluk sayıları da tazelensin
+        listCafeBroadcasts(cafeId).then(setBcs);
       }
       known.current = new Set(list.map((r) => r.id));
       setRes(list);
@@ -78,6 +81,16 @@ export default function PanelView({ matches, weekText }: { matches: MatchInfo[];
     const t = setTimeout(() => setToast(null), 5000);
     return () => clearTimeout(t);
   }, [toast]);
+
+  // iyzico'dan dönüş: /panel?odeme=ok | hata
+  const [payResult, setPayResult] = useState<'ok' | 'hata' | null>(null);
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search).get('odeme');
+    if (q !== 'ok' && q !== 'hata') return;
+    setPayResult(q);
+    window.history.replaceState(null, '', '/panel');
+    if (q === 'ok') confetti({ particleCount: 120, spread: 80, origin: { y: 0.3 }, colors: ['#1e7a4c', '#e2b54a', '#ffffff'], disableForReducedMotion: true });
+  }, []);
 
   const weekIds = useMemo(() => new Set(matches.map((m) => m.id)), [matches]);
   const live = res.filter((r) => r.status !== 'cancelled');
@@ -129,8 +142,7 @@ export default function PanelView({ matches, weekText }: { matches: MatchInfo[];
     );
   }
 
-  async function toggleArrived(r: Reservation) {
-    const status = r.status === 'arrived' ? 'new' : 'arrived';
+  async function changeStatus(r: Reservation, status: Reservation['status']) {
     setRes((all) => all.map((x) => (x.id === r.id ? { ...x, status } : x)));
     await setReservationStatus(r.id, status);
   }
@@ -157,6 +169,20 @@ export default function PanelView({ matches, weekText }: { matches: MatchInfo[];
           </button>
         </div>
       </div>
+
+      <AnimatePresence>
+        {payResult && (
+          <motion.div className={`pay-banner ${payResult}`} initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+            {payResult === 'ok' ? <CheckCheck size={20} /> : <CreditCard size={20} />}
+            <span style={{ flex: 1 }}>
+              {payResult === 'ok' ? 'Ödemen alındı, üyeliğin uzatıldı. Teşekkürler!' : 'Ödeme tamamlanamadı. Kartından para çekilmediyse tekrar deneyebilirsin.'}
+            </span>
+            <button className="icon-btn" onClick={() => setPayResult(null)} aria-label="Kapat">
+              <X size={16} />
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <div className="stats">
         <StatTile value={stats.arrived} label="Bu hafta gelen müşteri" highlight />
@@ -186,7 +212,7 @@ export default function PanelView({ matches, weekText }: { matches: MatchInfo[];
         </div>
 
         <div>
-          <Membership cafe={cafe} />
+          <Membership cafe={cafe} onCafe={setCafe} />
           <section className="card panel-card">
             <h2>Gelen müşteriler</h2>
             <p>Rezervasyonlar burada canlı düşer. Müşteri gelince “Geldi”ye bas, sayılar güncellensin.</p>
@@ -212,7 +238,7 @@ export default function PanelView({ matches, weekText }: { matches: MatchInfo[];
                   </div>
                   <AnimatePresence initial={false}>
                     {list.map((r) => (
-                      <ReservationItem key={r.id} r={r} fresh={fresh.has(r.id)} onToggle={() => toggleArrived(r)} />
+                      <ReservationItem key={r.id} r={r} fresh={fresh.has(r.id)} onStatus={(s) => changeStatus(r, s)} />
                     ))}
                   </AnimatePresence>
                 </div>
@@ -311,7 +337,8 @@ function PhotoManager({ cafe, onCafe }: { cafe: Cafe; onCafe: (c: Cafe) => void 
   );
 }
 
-function Membership({ cafe }: { cafe: Cafe }) {
+function Membership({ cafe, onCafe }: { cafe: Cafe; onCafe: (c: Cafe) => void }) {
+  const [paying, setPaying] = useState(false);
   const m = cafe.membership;
   const end = new Date(m.renewsAt).getTime();
   const total = Math.max(1, Math.round((end - new Date(m.startedAt).getTime()) / 86400000));
@@ -358,9 +385,15 @@ function Membership({ cafe }: { cafe: Cafe }) {
               ? `${renews} tarihine kadar ücretsizsin.`
               : `Deneme ${renews} tarihinde bitiyor. Ödeme bağlantısı e-postana gelecek.`}
       </p>
-      <a className="btn btn-ghost btn-sm" style={{ marginTop: 12 }} href={`mailto:merhaba@macnerede.com?subject=${encodeURIComponent(`Üyelik: ${cafe.name}`)}`}>
-        <CreditCard size={15} /> Ödeme / plan değişikliği
-      </a>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
+        <button className="btn btn-primary btn-sm" onClick={() => setPaying(true)}>
+          <CreditCard size={15} /> {m.status === 'active' ? 'Üyeliği uzat' : 'Üyeliği öde'}
+        </button>
+        <a className="btn btn-ghost btn-sm" href={`mailto:merhaba@macnerede.com?subject=${encodeURIComponent(`Üyelik: ${cafe.name}`)}`}>
+          Fatura / soru
+        </a>
+      </div>
+      <AnimatePresence>{paying && <PaymentSheet cafe={cafe} onClose={() => setPaying(false)} onPaid={onCafe} />}</AnimatePresence>
     </section>
   );
 }
@@ -402,6 +435,7 @@ function BroadcastRow({ m, cafe, existing, reservedPeople, onChange }: { m: Matc
       reserved: existing?.reserved ?? 0,
       reservationRequired: resReq,
       note: note.trim() || undefined,
+      kickoff: m.kickoffISO,
     });
     setState('saved');
     onChange();
@@ -497,27 +531,43 @@ function BroadcastRow({ m, cafe, existing, reservedPeople, onChange }: { m: Matc
   );
 }
 
-function ReservationItem({ r, fresh, onToggle }: { r: Reservation; fresh: boolean; onToggle: () => void }) {
-  const arrived = r.status === 'arrived';
+function ReservationItem({ r, fresh, onStatus }: { r: Reservation; fresh: boolean; onStatus: (s: Reservation['status']) => void }) {
   const when = new Intl.DateTimeFormat('tr-TR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(r.createdAt));
+  // "Gelmedi" ancak maç başladıktan sonra işaretlenebilir
+  const started = !r.kickoff || Date.now() >= new Date(r.kickoff).getTime();
   return (
-    <motion.div className={`res-item${fresh ? ' fresh' : ''}`} layout initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }}>
+    <motion.div className={`res-item${fresh ? ' fresh' : ''}${r.status === 'cancelled' ? ' cancelled' : ''}`} layout initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }}>
       <span className="res-people">{r.people}</span>
       <div className="who">
-        <b style={arrived ? { opacity: 0.6 } : undefined}>
+        <b>
           {r.name}
-          {fresh && <span className="new-dot">YENİ</span>}
+          {fresh && r.status === 'new' && <span className="new-dot">YENİ</span>}
+          {r.status === 'cancelled' && <span className="res-tag">İptal etti</span>}
+          {r.status === 'noshow' && <span className="res-tag off">Gelmedi</span>}
         </b>
         <span>
-          {r.code} · {when}
+          {formatPhone(r.phone)} · {r.code} · {when}
         </span>
       </div>
-      <a className="icon-btn" href={`tel:+${r.phone.startsWith('90') ? r.phone : `90${r.phone.replace(/^0/, '')}`}`} aria-label="Ara">
-        <Phone size={16} />
-      </a>
-      <button className={`btn btn-sm ${arrived ? 'btn-primary' : 'btn-ghost'}`} onClick={onToggle}>
-        {arrived ? <Check size={15} /> : null} Geldi
-      </button>
+      {r.status !== 'cancelled' && (
+        <>
+          <a className="icon-btn" href={telLink(r.phone)} aria-label={`${r.name} kişisini ara`}>
+            <Phone size={16} />
+          </a>
+          <button className={`btn btn-sm ${r.status === 'arrived' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => onStatus(r.status === 'arrived' ? 'new' : 'arrived')}>
+            {r.status === 'arrived' ? <Check size={15} /> : null} Geldi
+          </button>
+          {started && (
+            <button
+              className={`btn btn-sm ${r.status === 'noshow' ? 'btn-soft' : 'btn-ghost'} danger`}
+              onClick={() => onStatus(r.status === 'noshow' ? 'new' : 'noshow')}
+              title="Rezervasyona gelmeyen müşteriyi işaretle (2 kez olursa 30 gün rezervasyon yapamaz)"
+            >
+              Gelmedi
+            </button>
+          )}
+        </>
+      )}
     </motion.div>
   );
 }

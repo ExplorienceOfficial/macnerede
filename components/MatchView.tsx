@@ -9,6 +9,7 @@ import Countdown from './Countdown';
 import CafeCard from './CafeCard';
 import CafeMap from './CafeMap';
 import ReserveSheet from './ReserveSheet';
+import { PlayerCards } from './PlayerStrip';
 import { CityPicker, CompBadge, StadiumBackdrop } from './bits';
 import { PitchLines, TvIllustration } from './art';
 import type { MatchInfo } from '@/lib/fixtures';
@@ -163,6 +164,8 @@ export default function MatchView({ match, initialCity }: { match: MatchInfo; in
         {match.time && !match.finished && <Countdown to={match.kickoffISO} live={match.live} />}
         {match.finished && <p className="faint" style={{ textAlign: 'center', position: 'relative' }}>Bu maç oynandı.</p>}
       </motion.section>
+
+      <PlayerCards teams={fanTeams} />
 
       <div className="toolbar">
         <div className="toolbar-row">
