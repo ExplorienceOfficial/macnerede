@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next';
+import { Analytics } from '@vercel/analytics/next';
 import { Figtree } from 'next/font/google';
 import './globals.css';
 import Header from '@/components/Header';
@@ -38,6 +39,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <main>{children}</main>
           <Footer />
         </Providers>
+        {/* Vercel Web Analytics: ziyaretçi ve sayfa görüntüleme (çerezsiz) */}
+        <Analytics />
       </body>
     </html>
   );
