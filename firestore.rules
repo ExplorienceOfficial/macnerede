@@ -39,6 +39,7 @@ service cloud.firestore {
           && data().name is string && data().name.size() <= 80
           && data().capacity is int && data().capacity > 0 && data().capacity <= 5000
           && data().phone is string && data().phone.size() <= 15
+          && !('featuredUntil' in data())
           && coverOk();
       }
       // Normal kayıt: en fazla 14 günlük deneme
@@ -60,12 +61,13 @@ service cloud.firestore {
       // Mekan kendisi kayıt olur ya da yönetici mekan adına hesap açar
       allow create: if isAdmin() || (isOwner(cafeId) && basicsOk() && (trialOk() || ('activationCode' in data() && codeOk())));
 
-      // Mekan kendi bilgisini (kapak dahil) günceller; üyelik, plan ve koda dokunamaz.
+      // Mekan kendi bilgisini (kapak dahil) günceller; üyelik, plan, kod ve öne çıkarmaya (ücretli, yönetici açar) dokunamaz.
       // Üyeliği ödeme altyapısı / yönetici değiştirir.
       allow update: if isAdmin() || (isOwner(cafeId)
         && data().membership == resource.data.membership
         && data().plan == resource.data.plan
         && data().get('activationCode', null) == resource.data.get('activationCode', null)
+        && data().get('featuredUntil', null) == resource.data.get('featuredUntil', null)
         && coverOk());
 
       match /photos/{photoId} {

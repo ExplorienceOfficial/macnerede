@@ -6,9 +6,10 @@ import { ExternalLink, Info, MessageCircle, Navigation, Phone, Star, Trees, Tv }
 import { KindIcon } from './bits';
 import { HookahIcon, PintIcon } from './art';
 import { directionsLink, telLink } from '@/lib/hooks';
+import { claimLink } from '@/lib/site';
 import { track } from '@/lib/db';
 import { districtName } from '@/lib/places';
-import { hasWhatsApp } from '@/lib/venues';
+import { evidenceMonth, hasWhatsApp } from '@/lib/venues';
 import type { Venue } from '@/lib/types';
 
 interface Props {
@@ -17,10 +18,12 @@ interface Props {
   active: boolean;
   onSeat: (id: string) => void;
   onFocus: (id: string) => void;
+  /** Ücretli öne çıkarma süresi içinde */
+  featured?: boolean;
 }
 
 /** Rehber mekanı: anlaşmalı değil, maç verdiği taraftar yorumlarından biliniyor */
-export default function VenueCard({ v, index, active, onSeat, onFocus }: Props) {
+export default function VenueCard({ v, index, active, onSeat, onFocus, featured }: Props) {
   const wa = hasWhatsApp(v.phone);
   return (
     <motion.article
@@ -37,7 +40,14 @@ export default function VenueCard({ v, index, active, onSeat, onFocus }: Props) 
           <KindIcon kind={v.kind} />
         </div>
         <div className="cc-title">
-          <h3 onClick={() => onFocus(v.id)}>{v.name}</h3>
+          <h3 onClick={() => onFocus(v.id)}>
+            {v.name}
+            {featured && (
+              <span className="badge badge-pro">
+                <Star size={12} fill="currentColor" /> Öne çıkan
+              </span>
+            )}
+          </h3>
           <p>
             {v.kind} · {districtName(v.city, v.district)} · {v.address}
           </p>
@@ -75,7 +85,8 @@ export default function VenueCard({ v, index, active, onSeat, onFocus }: Props) 
       <p className="cc-note">
         <Info size={15} style={{ flex: 'none', marginTop: 2 }} />
         <span>
-          Taraftar yorumlarına göre maç veriyor ({v.evidence}). Anlaşmalı değil: o maçı verip vermediğini, sesi ve giriş ücretini gitmeden sor.
+          Taraftar yorumlarına göre maç veriyor{v.evidenceDate && ` (en yeni maç yorumu ${evidenceMonth(v.evidenceDate)})`}. Anlaşmalı değil: o maçı
+          verip vermediğini, sesi ve giriş ücretini gitmeden sor.
         </span>
       </p>
 
@@ -107,10 +118,22 @@ export default function VenueCard({ v, index, active, onSeat, onFocus }: Props) 
             <ExternalLink size={15} /> Instagram
           </a>
         )}
+        <Link className="btn btn-ghost" href={`/mekan/${v.id}`}>
+          Detay
+        </Link>
       </div>
-      <Link className="claim-link" href={`/kayit?mekan=${v.id}`}>
-        Bu mekan senin mi? Maçlarını ve fiyatlarını sen gir →
-      </Link>
+      <ClaimLink v={v} />
     </motion.article>
+  );
+}
+
+/** "Bu işletmenin sahibi misiniz?": doğrudan NeredeMaç WhatsApp hattına (numara yoksa başvuru formuna) */
+export function ClaimLink({ v }: { v: Pick<Venue, 'id' | 'name' | 'city' | 'district'> }) {
+  const href = claimLink(v.id, `${v.name} (${districtName(v.city, v.district)})`);
+  const external = href.startsWith('http');
+  return (
+    <a className="claim-link" href={href} {...(external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}>
+      Bu işletmenin sahibi misiniz? Bilgilerinizi birlikte güncelleyelim →
+    </a>
   );
 }

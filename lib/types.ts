@@ -31,6 +31,8 @@ export interface Cafe {
   cover?: string | null;
   /** Kapak olarak seçilen galeri fotoğrafının id'si */
   coverPhotoId?: string | null;
+  /** Öne çıkarma (ücretli, yönetici açar): bu tarihe kadar (dahil, YYYY-AA-GG) şehrin listesinde en üstte */
+  featuredUntil?: string | null;
 }
 
 /**
@@ -50,13 +52,24 @@ export interface Venue {
   features: Cafe['features'];
   rating: number | null;
   reviews: number | null;
-  /** Neden "maç veriyor" diyoruz: ör. "5 yorum, en yenisi 1 ay önce" */
+  /** Neden "maç veriyor" diyoruz: kanıtın kısa notu (ör. "5 yorum, en yenisi 1 ay önce" ya da bir bağlantı) */
   evidence: string;
+  /** Maç izlendiğini yazan en yeni yorumun/paylaşımın tarihi (YYYY-AA-GG). Yoksa mekan listede görünmez. */
+  evidenceDate?: string | null;
+  /** Son 11 ayda maç izlendiğini yazan yorum sayısı (elle sayıldıysa) */
+  evidenceCount?: number | null;
   instagram?: string;
   website?: string;
+  /** Google Maps bağlantısı */
+  mapsUrl?: string;
   /** Yönetici listeden kaldırdıysa */
   hidden?: boolean;
+  /** Öne çıkarma (ücretli, yönetici açar): bu tarihe kadar (dahil) şehrin listesinde en üstte */
+  featuredUntil?: string | null;
 }
+
+/** Öne çıkarma bugün geçerli mi (TSİ tarihiyle) */
+export const isFeatured = (p: { featuredUntil?: string | null }, today: string) => !!p.featuredUntil && p.featuredUntil >= today;
 
 /** "Mekanını ekle" kısa formundan gelen başvuru: profili yönetici hazırlar */
 export interface Lead {

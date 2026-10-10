@@ -1,5 +1,5 @@
 {
- "checkedAt": "2026-10-09",
+ "checkedAt": "2026-10-10",
  "venues": [
   {
    "id": "ist-kuzen-beer-cafe",
@@ -19,7 +19,8 @@
    },
    "rating": 4.1,
    "reviews": 1238,
-   "evidence": "5 yorum, en yenisi 1 ay önce"
+   "evidence": "5 yorum, en yenisi 1 ay önce",
+   "evidenceDate": "2026-09-09"
   },
   {
    "id": "ist-ilk-vapur",
@@ -39,7 +40,8 @@
    },
    "rating": 4.1,
    "reviews": 392,
-   "evidence": "4 yorum, en yenisi 1 ay önce"
+   "evidence": "4 yorum, en yenisi 1 ay önce",
+   "evidenceDate": "2026-09-09"
   },
   {
    "id": "ist-bade-birahanesi",
@@ -59,7 +61,8 @@
    },
    "rating": 4.3,
    "reviews": 125,
-   "evidence": "5 yorum, en yenisi 1 yıl önce"
+   "evidence": "5 yorum, en yenisi 1 yıl önce",
+   "evidenceDate": "2025-10-09"
   },
   {
    "id": "ist-dorock-xl",
@@ -79,7 +82,8 @@
    },
    "rating": 3.8,
    "reviews": 5719,
-   "evidence": "3 yorum, en yenisi 11 ay önce"
+   "evidence": "3 yorum, en yenisi 11 ay önce",
+   "evidenceDate": "2025-11-09"
   },
   {
    "id": "ist-red-train",
@@ -99,7 +103,8 @@
    },
    "rating": 4.1,
    "reviews": 704,
-   "evidence": "5 yorum, en yenisi 6 ay önce"
+   "evidence": "5 yorum, en yenisi 6 ay önce",
+   "evidenceDate": "2026-04-09"
   },
   {
    "id": "ist-old-english-pub",
@@ -119,7 +124,8 @@
    },
    "rating": 4.2,
    "reviews": 2559,
-   "evidence": "3 yorum, en yenisi 10 ay önce"
+   "evidence": "3 yorum, en yenisi 10 ay önce",
+   "evidenceDate": "2025-12-09"
   },
   {
    "id": "ist-havelka-caddebostan",
@@ -140,7 +146,8 @@
    "rating": 4.4,
    "reviews": 1088,
    "evidence": "2 yorum, en yenisi 1 yıl önce",
-   "website": "https://www.havelka.com.tr/"
+   "website": "https://www.havelka.com.tr/",
+   "evidenceDate": "2025-10-09"
   },
   {
    "id": "ist-the-north-shield-caddebostan",
@@ -160,7 +167,8 @@
    },
    "rating": 4.2,
    "reviews": 599,
-   "evidence": "5 yorum, en yenisi 8 ay önce"
+   "evidence": "5 yorum, en yenisi 8 ay önce",
+   "evidenceDate": "2026-02-09"
   },
   {
    "id": "ist-chops-bistro-besiktas",
@@ -180,7 +188,8 @@
    },
    "rating": 4.2,
    "reviews": 580,
-   "evidence": "3 yorum, en yenisi 10 ay önce"
+   "evidence": "3 yorum, en yenisi 10 ay önce",
+   "evidenceDate": "2025-12-09"
   },
   {
    "id": "ist-besiktas-kazan",
@@ -200,7 +209,8 @@
    },
    "rating": 4.3,
    "reviews": 1407,
-   "evidence": "5 yorum, en yenisi 3 yıl önce"
+   "evidence": "5 yorum, en yenisi 3 yıl önce",
+   "evidenceDate": "2023-10-09"
   },
   {
    "id": "ist-eagle-shelter",
@@ -220,7 +230,8 @@
    },
    "rating": 4.7,
    "reviews": 202,
-   "evidence": "4 yorum, en yenisi 2 yıl önce"
+   "evidence": "4 yorum, en yenisi 2 yıl önce",
+   "evidenceDate": "2024-10-09"
   },
   {
    "id": "ist-taps-bebek",
@@ -241,7 +252,8 @@
    "rating": 4.4,
    "reviews": 1983,
    "evidence": "5 yorum, en yenisi 1 yıl önce",
-   "website": "http://tapsbebek.com/"
+   "website": "http://tapsbebek.com/",
+   "evidenceDate": "2025-10-09"
   },
   {
    "id": "ist-corner-irish-pub",
@@ -261,7 +273,8 @@
    },
    "rating": 4.8,
    "reviews": 988,
-   "evidence": "5 yorum, en yenisi 2 hafta önce"
+   "evidence": "5 yorum, en yenisi 2 hafta önce",
+   "evidenceDate": "2026-09-25"
   },
   {
    "id": "ist-bubble-pub",
@@ -281,7 +294,8 @@
    },
    "rating": 4.1,
    "reviews": 677,
-   "evidence": "5 yorum, en yenisi 5 ay önce"
+   "evidence": "5 yorum, en yenisi 5 ay önce",
+   "evidenceDate": "2026-05-09"
   },
   {
    "id": "ist-chops-pub-mecidiyekoy",
@@ -301,7 +315,8 @@
    },
    "rating": 4.3,
    "reviews": 630,
-   "evidence": "5 yorum, en yenisi 10 ay önce"
+   "evidence": "5 yorum, en yenisi 10 ay önce",
+   "evidenceDate": "2025-12-09"
   },
   {
    "id": "ist-the-vagonn-cafe",
@@ -321,7 +336,8 @@
    },
    "rating": 4.0,
    "reviews": 967,
-   "evidence": "5 yorum, en yenisi 7 ay önce"
+   "evidence": "5 yorum, en yenisi 7 ay önce",
+   "evidenceDate": "2026-03-09"
   },
   {
    "id": "ist-lost-cafe-bakirkoy",
@@ -342,7 +358,8 @@
    "rating": 4.1,
    "reviews": 1054,
    "evidence": "5 yorum, en yenisi 5 ay önce",
-   "website": "http://www.lostcafebar.com/"
+   "website": "http://www.lostcafebar.com/",
+   "evidenceDate": "2026-05-09"
   },
   {
    "id": "ist-altin-fici",
@@ -362,7 +379,8 @@
    },
    "rating": 4.1,
    "reviews": 134,
-   "evidence": "3 yorum, en yenisi 3 yıl önce"
+   "evidence": "3 yorum, en yenisi 3 yıl önce",
+   "evidenceDate": "2023-10-09"
   },
   {
    "id": "ist-smoky-lounge-bakirkoy",
@@ -382,7 +400,8 @@
    },
    "rating": 4.1,
    "reviews": 393,
-   "evidence": "5 yorum, en yenisi 5 ay önce"
+   "evidence": "5 yorum, en yenisi 5 ay önce",
+   "evidenceDate": "2026-05-09"
   },
   {
    "id": "ist-pub-locale-watergarden",
@@ -403,7 +422,8 @@
    "rating": 4.4,
    "reviews": 440,
    "evidence": "2 yorum, en yenisi 1 yıl önce",
-   "website": "http://www.publocale.com.tr/"
+   "website": "http://www.publocale.com.tr/",
+   "evidenceDate": "2025-10-09"
   },
   {
    "id": "ist-newcastle-watergarden",
@@ -424,7 +444,8 @@
    "rating": 4.1,
    "reviews": 771,
    "evidence": "5 yorum, en yenisi 5 ay önce",
-   "website": "http://www.newcastle.com.tr/"
+   "website": "http://www.newcastle.com.tr/",
+   "evidenceDate": "2026-05-09"
   },
   {
    "id": "ist-marpuc-atasehir",
@@ -445,7 +466,8 @@
    "rating": 4.3,
    "reviews": 200,
    "evidence": "5 yorum, en yenisi 1 yıl önce",
-   "website": "http://www.marpucatasehir.com/"
+   "website": "http://www.marpucatasehir.com/",
+   "evidenceDate": "2025-10-09"
   },
   {
    "id": "ist-mandal-lounge",
@@ -466,7 +488,8 @@
    "rating": 4.5,
    "reviews": 470,
    "evidence": "5 yorum, en yenisi 8 ay önce",
-   "website": "http://www.mandallounge.com/"
+   "website": "http://www.mandallounge.com/",
+   "evidenceDate": "2026-02-09"
   },
   {
    "id": "ist-suadiye-cadde",
@@ -487,7 +510,8 @@
    "rating": 4.5,
    "reviews": 233,
    "evidence": "4 yorum, en yenisi 2 yıl önce",
-   "website": "https://suadiyecadde.com/"
+   "website": "https://suadiyecadde.com/",
+   "evidenceDate": "2024-10-09"
   },
   {
    "id": "ist-oma-s-pub",
@@ -507,7 +531,8 @@
    },
    "rating": 4.9,
    "reviews": 135,
-   "evidence": "4 yorum, en yenisi 19 saat önce"
+   "evidence": "4 yorum, en yenisi 19 saat önce",
+   "evidenceDate": "2026-10-09"
   },
   {
    "id": "ist-yer-fistigi-caddebostan",
@@ -527,7 +552,8 @@
    },
    "rating": 3.3,
    "reviews": 586,
-   "evidence": "5 yorum, en yenisi 3 ay önce"
+   "evidence": "5 yorum, en yenisi 3 ay önce",
+   "evidenceDate": "2026-07-09"
   },
   {
    "id": "izm-altin-ayi",
@@ -548,7 +574,8 @@
    "rating": 4.2,
    "reviews": 366,
    "evidence": "5 yorum, en yenisi 4 ay önce",
-   "instagram": "altinayipub"
+   "instagram": "altinayipub",
+   "evidenceDate": "2026-06-09"
   },
   {
    "id": "izm-adres-belli-irish-pub",
@@ -568,7 +595,8 @@
    },
    "rating": 4.8,
    "reviews": 1421,
-   "evidence": "5 yorum, en yenisi 2 ay önce"
+   "evidence": "5 yorum, en yenisi 2 ay önce",
+   "evidenceDate": "2026-08-09"
   },
   {
    "id": "izm-tyna-pub-restaurant",
@@ -589,7 +617,8 @@
    "rating": 4.2,
    "reviews": 1279,
    "evidence": "5 yorum, en yenisi 7 ay önce",
-   "instagram": "tyna.pubrestaurant"
+   "instagram": "tyna.pubrestaurant",
+   "evidenceDate": "2026-03-09"
   },
   {
    "id": "izm-anba-sports-bar-grill",
@@ -609,7 +638,8 @@
    },
    "rating": 4.2,
    "reviews": 81,
-   "evidence": "3 yorum, en yenisi 2 yıl önce"
+   "evidence": "3 yorum, en yenisi 2 yıl önce",
+   "evidenceDate": "2024-10-09"
   },
   {
    "id": "izm-cordelion-sports-pub",
@@ -630,7 +660,8 @@
    "rating": 4.1,
    "reviews": 485,
    "evidence": "5 yorum, en yenisi 1 yıl önce",
-   "website": "http://www.karsiyakakentas.com/"
+   "website": "http://www.karsiyakakentas.com/",
+   "evidenceDate": "2025-10-09"
   },
   {
    "id": "izm-biralem-pub",
@@ -650,7 +681,8 @@
    },
    "rating": 4.2,
    "reviews": 1174,
-   "evidence": "4 yorum, en yenisi 2 ay önce"
+   "evidence": "4 yorum, en yenisi 2 ay önce",
+   "evidenceDate": "2026-08-09"
   },
   {
    "id": "izm-park-biraver",
@@ -670,7 +702,8 @@
    },
    "rating": 4.0,
    "reviews": 284,
-   "evidence": "5 yorum, en yenisi 4 ay önce"
+   "evidence": "5 yorum, en yenisi 4 ay önce",
+   "evidenceDate": "2026-06-09"
   },
   {
    "id": "izm-me-and-you-bornova",
@@ -691,7 +724,8 @@
    "rating": 4.0,
    "reviews": 229,
    "evidence": "2 yorum, en yenisi 6 ay önce",
-   "instagram": "meandyoubornova"
+   "instagram": "meandyoubornova",
+   "evidenceDate": "2026-04-09"
   },
   {
    "id": "izm-vardar-mac-kahvesi",
@@ -711,7 +745,8 @@
    },
    "rating": 4.9,
    "reviews": 8,
-   "evidence": "Mekanın kendi adı: Maç Kahvesi"
+   "evidence": "Mekanın kendi adı: Maç Kahvesi",
+   "evidenceDate": null
   },
   {
    "id": "izm-me-and-you-buca",
@@ -731,7 +766,8 @@
    },
    "rating": 4.0,
    "reviews": 518,
-   "evidence": "3 yorum, en yenisi 2 yıl önce"
+   "evidence": "3 yorum, en yenisi 2 yıl önce",
+   "evidenceDate": "2024-10-09"
   },
   {
    "id": "izm-the-glen-pub-balcova",
@@ -751,7 +787,8 @@
    },
    "rating": 4.2,
    "reviews": 218,
-   "evidence": "2 yorum, en yenisi 10 ay önce"
+   "evidence": "2 yorum, en yenisi 10 ay önce",
+   "evidenceDate": "2025-12-09"
   },
   {
    "id": "izm-eko-pub",
@@ -772,7 +809,8 @@
    "rating": 4.3,
    "reviews": 1671,
    "evidence": "5 yorum, en yenisi 1 yıl önce",
-   "website": "http://ekopub.org/"
+   "website": "http://ekopub.org/",
+   "evidenceDate": "2025-10-09"
   },
   {
    "id": "izm-binevi-pub-alsancak",
@@ -793,7 +831,8 @@
    "rating": 4.4,
    "reviews": 102,
    "evidence": "3 yorum, en yenisi 1 ay önce",
-   "website": "https://binevipub.com/"
+   "website": "https://binevipub.com/",
+   "evidenceDate": "2026-09-09"
   },
   {
    "id": "izm-cipa-birahanesi",
@@ -813,7 +852,8 @@
    },
    "rating": 4.1,
    "reviews": 240,
-   "evidence": "5 yorum, en yenisi 2 yıl önce"
+   "evidence": "5 yorum, en yenisi 2 yıl önce",
+   "evidenceDate": "2024-10-09"
   },
   {
    "id": "izm-bear-and-beer-cafe-bistro",
@@ -833,7 +873,8 @@
    },
    "rating": 3.7,
    "reviews": 338,
-   "evidence": "5 yorum, en yenisi 7 ay önce"
+   "evidence": "5 yorum, en yenisi 7 ay önce",
+   "evidenceDate": "2026-03-09"
   },
   {
    "id": "izm-masha-lounge",
@@ -854,7 +895,8 @@
    "rating": 4.2,
    "reviews": 470,
    "evidence": "5 yorum, en yenisi 1 yıl önce",
-   "website": "http://www.mashalounge.com.tr/"
+   "website": "http://www.mashalounge.com.tr/",
+   "evidenceDate": "2025-10-09"
   },
   {
    "id": "izm-me-and-you-bayrakli",
@@ -875,7 +917,8 @@
    "rating": 4.1,
    "reviews": 164,
    "evidence": "4 yorum, en yenisi 2 hafta önce",
-   "website": "http://meandyou.com.tr/"
+   "website": "http://meandyou.com.tr/",
+   "evidenceDate": "2026-09-25"
   },
   {
    "id": "izm-joseph-buca-garden",
@@ -895,7 +938,8 @@
    },
    "rating": 3.9,
    "reviews": 193,
-   "evidence": "2 yorum, en yenisi 2 yıl önce"
+   "evidence": "2 yorum, en yenisi 2 yıl önce",
+   "evidenceDate": "2024-10-09"
   },
   {
    "id": "izm-barcelona-bistro-lounge",
@@ -915,7 +959,8 @@
    },
    "rating": 4.0,
    "reviews": 128,
-   "evidence": "2 yorum, en yenisi 1 yıl önce"
+   "evidence": "2 yorum, en yenisi 1 yıl önce",
+   "evidenceDate": "2025-10-09"
   },
   {
    "id": "izm-ottoman-mavisehir",
@@ -935,7 +980,8 @@
    },
    "rating": 3.6,
    "reviews": 217,
-   "evidence": "5 yorum, en yenisi 10 ay önce"
+   "evidence": "5 yorum, en yenisi 10 ay önce",
+   "evidenceDate": "2025-12-09"
   },
   {
    "id": "izm-kordon-cafe-bar",
@@ -955,7 +1001,8 @@
    },
    "rating": 4.0,
    "reviews": 1085,
-   "evidence": "5 yorum, en yenisi 1 yıl önce"
+   "evidence": "5 yorum, en yenisi 1 yıl önce",
+   "evidenceDate": "2025-10-09"
   },
   {
    "id": "ank-alerta-pub",
@@ -976,7 +1023,9 @@
    "rating": 3.9,
    "reviews": 614,
    "evidence": "5 yorum, en yenisi 6 ay önce",
-   "website": "http://www.alertapub.com/"
+   "website": "http://www.alertapub.com/",
+   "evidenceCount": 3,
+   "evidenceDate": "2026-04-09"
   },
   {
    "id": "ank-minister-pub",
@@ -997,7 +1046,9 @@
    "rating": 4.3,
    "reviews": 1301,
    "evidence": "3 yorum, en yenisi 3 ay önce",
-   "instagram": "minister_pub"
+   "instagram": "minister_pub",
+   "evidenceCount": 2,
+   "evidenceDate": "2026-07-09"
   },
   {
    "id": "ank-koliba-cafe",
@@ -1018,7 +1069,9 @@
    "rating": 4.0,
    "reviews": 1476,
    "evidence": "2 yorum, en yenisi 10 ay önce",
-   "website": "http://www.kolibacafe.com/"
+   "website": "http://www.kolibacafe.com/",
+   "evidenceCount": 2,
+   "evidenceDate": "2025-12-09"
   },
   {
    "id": "ank-james-cook-cafe-pub-restoran",
@@ -1038,7 +1091,9 @@
    },
    "rating": 4.2,
    "reviews": 1074,
-   "evidence": "5 yorum, en yenisi 3 ay önce"
+   "evidence": "5 yorum, en yenisi 3 ay önce",
+   "evidenceCount": 4,
+   "evidenceDate": "2026-07-09"
   },
   {
    "id": "ank-nry-pub",
@@ -1058,7 +1113,9 @@
    },
    "rating": 4.3,
    "reviews": 1024,
-   "evidence": "5 yorum, en yenisi 8 ay önce"
+   "evidence": "5 yorum, en yenisi 8 ay önce",
+   "evidenceCount": 1,
+   "evidenceDate": "2026-02-09"
   },
   {
    "id": "ank-varuna-gezgin-cafe-tunali",
@@ -1079,7 +1136,9 @@
    "rating": 4.3,
    "reviews": 2332,
    "evidence": "5 yorum, en yenisi 5 ay önce",
-   "website": "https://varunagezgin.com/"
+   "website": "https://varunagezgin.com/",
+   "evidenceCount": 1,
+   "evidenceDate": "2026-05-09"
   },
   {
    "id": "ank-el-paso-tunali",
@@ -1099,7 +1158,9 @@
    },
    "rating": 3.9,
    "reviews": 868,
-   "evidence": "5 yorum, en yenisi 4 ay önce"
+   "evidence": "5 yorum, en yenisi 4 ay önce",
+   "evidenceCount": 3,
+   "evidenceDate": "2026-05-09"
   },
   {
    "id": "ank-pubsef",
@@ -1119,7 +1180,8 @@
    },
    "rating": 4.4,
    "reviews": 121,
-   "evidence": "5 yorum, en yenisi 1 yıl önce"
+   "evidence": "5 yorum, en yenisi 1 yıl önce",
+   "evidenceDate": "2025-10-09"
   },
   {
    "id": "ank-rec-cafe-bahcelievler",
@@ -1139,7 +1201,8 @@
    },
    "rating": 4.2,
    "reviews": 582,
-   "evidence": "5 yorum, en yenisi 1 ay önce"
+   "evidence": "5 yorum, en yenisi 1 ay önce",
+   "evidenceDate": "2026-09-09"
   },
   {
    "id": "ank-varuna-gezgin-cafe-bahcelievler",
@@ -1160,7 +1223,8 @@
    "rating": 4.1,
    "reviews": 3372,
    "evidence": "5 yorum, en yenisi 10 ay önce",
-   "website": "https://varunagezgin.com/"
+   "website": "https://varunagezgin.com/",
+   "evidenceDate": "2025-12-09"
   },
   {
    "id": "ank-tabu-cafe",
@@ -1180,7 +1244,8 @@
    },
    "rating": 3.7,
    "reviews": 1424,
-   "evidence": "5 yorum, en yenisi 1 yıl önce"
+   "evidence": "5 yorum, en yenisi 1 yıl önce",
+   "evidenceDate": "2025-10-09"
   },
   {
    "id": "ank-seyir-cafe",
@@ -1201,7 +1266,8 @@
    "rating": 3.7,
    "reviews": 4610,
    "evidence": "5 yorum, en yenisi 6 ay önce",
-   "website": "https://seyircafe.com.tr/"
+   "website": "https://seyircafe.com.tr/",
+   "evidenceDate": "2026-04-09"
   },
   {
    "id": "ank-kanatci-emek",
@@ -1221,7 +1287,8 @@
    },
    "rating": 4.2,
    "reviews": 503,
-   "evidence": "5 yorum, en yenisi 8 ay önce"
+   "evidence": "5 yorum, en yenisi 8 ay önce",
+   "evidenceDate": "2026-02-09"
   },
   {
    "id": "ank-loophole-booze-bite-fun",
@@ -1242,7 +1309,8 @@
    "rating": 4.4,
    "reviews": 1328,
    "evidence": "3 yorum, en yenisi 1 yıl önce",
-   "website": "http://loophole.com.tr/"
+   "website": "http://loophole.com.tr/",
+   "evidenceDate": "2025-10-09"
   },
   {
    "id": "ank-pool-pub-cayyolu",
@@ -1263,7 +1331,8 @@
    "rating": 3.6,
    "reviews": 2399,
    "evidence": "4 yorum, en yenisi 7 ay önce",
-   "website": "http://www.poolpub.com/"
+   "website": "http://www.poolpub.com/",
+   "evidenceDate": "2026-03-09"
   },
   {
    "id": "ank-narquilla-cafe",
@@ -1284,7 +1353,8 @@
    "rating": 4.0,
    "reviews": 400,
    "evidence": "4 yorum, en yenisi 9 ay önce",
-   "website": "https://www.narquilla.com.tr/"
+   "website": "https://www.narquilla.com.tr/",
+   "evidenceDate": "2026-01-09"
   },
   {
    "id": "ank-lokal-71",
@@ -1305,7 +1375,8 @@
    "rating": 4.0,
    "reviews": 773,
    "evidence": "4 yorum, en yenisi 1 yıl önce",
-   "website": "http://www.lokal71.com/"
+   "website": "http://www.lokal71.com/",
+   "evidenceDate": "2025-10-09"
   },
   {
    "id": "ank-cafe-liman-batikent",
@@ -1325,7 +1396,8 @@
    },
    "rating": 4.4,
    "reviews": 150,
-   "evidence": "4 yorum, en yenisi 1 yıl önce"
+   "evidence": "4 yorum, en yenisi 1 yıl önce",
+   "evidenceDate": "2025-10-09"
   },
   {
    "id": "ank-kafka-eryaman",
@@ -1346,7 +1418,8 @@
    "rating": 3.9,
    "reviews": 2031,
    "evidence": "4 yorum, en yenisi 1 yıl önce",
-   "instagram": "kafkacafebistro"
+   "instagram": "kafkacafebistro",
+   "evidenceDate": "2025-10-09"
   },
   {
    "id": "ank-osmanli-cafe-balgat",
@@ -1367,7 +1440,8 @@
    "rating": 3.9,
    "reviews": 3192,
    "evidence": "5 yorum, en yenisi 3 ay önce",
-   "website": "http://www.osmanlicafe.com.tr/"
+   "website": "http://www.osmanlicafe.com.tr/",
+   "evidenceDate": "2026-07-09"
   },
   {
    "id": "ank-hookinn-lounge",
@@ -1388,7 +1462,8 @@
    "rating": 3.9,
    "reviews": 142,
    "evidence": "2 yorum, en yenisi 1 yıl önce",
-   "website": "https://hookinn.com.tr/"
+   "website": "https://hookinn.com.tr/",
+   "evidenceDate": "2025-10-09"
   },
   {
    "id": "ank-dubh-linn-viaflat",
@@ -1408,7 +1483,8 @@
    },
    "rating": 3.8,
    "reviews": 699,
-   "evidence": "5 yorum, en yenisi 9 ay önce"
+   "evidence": "5 yorum, en yenisi 9 ay önce",
+   "evidenceDate": "2026-01-09"
   },
   {
    "id": "ank-suvari-kahvesi",
@@ -1428,7 +1504,8 @@
    },
    "rating": 3.8,
    "reviews": 2052,
-   "evidence": "5 yorum, en yenisi 1 yıl önce"
+   "evidence": "5 yorum, en yenisi 1 yıl önce",
+   "evidenceDate": "2025-10-09"
   },
   {
    "id": "ank-dalyy-done-concept-kecioren",
@@ -1448,7 +1525,8 @@
    },
    "rating": 3.5,
    "reviews": 525,
-   "evidence": "5 yorum, en yenisi 1 ay önce"
+   "evidence": "5 yorum, en yenisi 1 ay önce",
+   "evidenceDate": "2026-09-09"
   },
   {
    "id": "ank-sir-winston-pub-ankamall",
@@ -1469,7 +1547,8 @@
    "rating": 3.4,
    "reviews": 476,
    "evidence": "4 yorum, en yenisi 10 ay önce",
-   "instagram": "sirwinstonpubankara"
+   "instagram": "sirwinstonpubankara",
+   "evidenceDate": "2025-12-09"
   },
   {
    "id": "ank-garaj-53",
@@ -1489,7 +1568,9 @@
    },
    "rating": 3.8,
    "reviews": 280,
-   "evidence": "4 yorum, en yenisi 7 ay önce"
+   "evidence": "4 yorum, en yenisi 7 ay önce",
+   "evidenceDate": "2026-03-09"
   }
- ]
+ ],
+ "rule": "Listede kalma: en yeni maç yorumu son 6 ay içinde, ya da son 11 ayda en az 3 maç yorumu (lib/venues.ts → isTrusted)"
 }

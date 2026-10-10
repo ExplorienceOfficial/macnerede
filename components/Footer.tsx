@@ -8,7 +8,10 @@ export default function Footer() {
         <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', flex: '1 1 420px' }}>
           <LogoMark size={24} />
           <div>
-            <p>Anlaşmalı mekanların bilgileri kendi beyanıdır. Diğer mekanlar taraftar yorumlarından derlendi; gitmeden sorup teyit et.</p>
+            <p>
+              Anlaşmalı mekanların bilgileri kendi beyanıdır. Diğer mekanlar ancak son aylarda maç yayını yaptığını yazan taraftar yorumlarıyla
+              doğrulanınca listelenir; kanıtı eskiyen mekan listeden çıkar. Yine de gitmeden sorup teyit et.
+            </p>
             <p className="footer-legal">
               NeredeMaç yayın yapmaz ve yayın bağlantısı vermez, yalnızca maçın izlenebileceği fiziki mekanları listeler; mekandaki yayının
               ticari lisansı ve yasal sorumluluğu tamamen ilgili işletmeye aittir.

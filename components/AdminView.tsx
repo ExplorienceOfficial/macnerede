@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { AnimatePresence, motion } from 'motion/react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { BarChart3, BookOpen, CalendarDays, Download, Check, CreditCard, Copy, Eye, EyeOff, ExternalLink, FileUp, Inbox, KeyRound, LogOut, MessageCircle, RefreshCw, Search, ShieldCheck, Store, Trash2, UploadCloud, UserPlus } from 'lucide-react';
+import { BarChart3, BookOpen, CalendarDays, Download, Check, Plus, Star, CreditCard, Copy, Eye, EyeOff, ExternalLink, FileUp, Inbox, KeyRound, LogOut, MessageCircle, RefreshCw, Search, ShieldCheck, Store, Trash2, UploadCloud, UserPlus } from 'lucide-react';
 import Crest from './Crest';
 import LocationPicker, { type LatLng } from './LocationPicker';
 import { CompBadge, KindIcon } from './bits';
@@ -19,6 +19,9 @@ import {
   adminListLeads,
   adminListPayments,
   adminListStats,
+  SITE_STAT_ID,
+  adminSaveVenue,
+  adminSetFeatured,
   adminListVenues,
   adminSetMembership,
   adminSetVenueHidden,
@@ -36,10 +39,10 @@ import {
 } from '@/lib/db';
 import { DEFAULT_CITY, cities, cityById, districtById, districtName } from '@/lib/places';
 import { BIG4, team, type BigTeam } from '@/lib/teams';
-import { CAFE_KINDS, plans, type Payment, type ActivationCode, type Broadcast, type Cafe, type CafeKind, type Lead, type PlanId, type Venue } from '@/lib/types';
-import { addDays, matchPath, ymdIstanbul, type MatchInfo } from '@/lib/fixtures';
+import { CAFE_KINDS, isFeatured, plans, type Payment, type ActivationCode, type Broadcast, type Cafe, type CafeKind, type Lead, type PlanId, type Venue } from '@/lib/types';
+import { addDays, allMatches, matchPath, slugify, ymdIstanbul, type MatchInfo } from '@/lib/fixtures';
 import { formatPhone, tl, waLink } from '@/lib/hooks';
-import { bundledVenues } from '@/lib/venues';
+import { FRESH_MONTHS, MAX_MONTHS, MIN_RECENT, bundledVenues, evidenceMonth, isTrusted, trustStatus } from '@/lib/venues';
 import { downloadXlsx, type Cell } from '@/lib/xlsx';
 
 type Tab = 'hafta' | 'analitik' | 'mekanlar' | 'basvurular' | 'rehber' | 'yeni' | 'odemeler' | 'kodlar';
@@ -352,6 +355,7 @@ function CafesTab({ cafes, onChange, onReload }: { cafes: Cafe[] | null; onChang
                     <div className="ac-info">
                       <b>
                         {c.name} {c.fanOf && <Crest id={c.fanOf} size={16} />}
+                        {isFeatured(c, ymdIstanbul(new Date())) && <span className="badge badge-pro">Öne çıkan · {fmtDay(c.featuredUntil!)}’e kadar</span>}
                       </b>
                       <span>
                         {cityById(c.city)?.name} / {districtName(c.city, c.district)} · {c.kind} · kayıt {fmtDate(c.createdAt)}
@@ -381,6 +385,14 @@ function CafesTab({ cafes, onChange, onReload }: { cafes: Cafe[] | null; onChang
                     <button className="btn btn-ghost btn-sm danger" disabled={busy === c.id || c.membership.status === 'canceled'} onClick={() => act(c, 'cancel')}>
                       Askıya al
                     </button>
+                    <FeatureControl
+                      until={c.featuredUntil ?? null}
+                      today={ymdIstanbul(new Date())}
+                      onSet={async (until) => {
+                        await adminSetFeatured('cafe', c.id, until);
+                        onChange({ ...c, featuredUntil: until });
+                      }}
+                    />
                     <Link className="btn btn-ghost btn-sm" href={`/kafe/${c.id}`}>
                       <ExternalLink size={14} /> Sayfası
                     </Link>
@@ -1028,6 +1040,11 @@ const RANGES = [
   { id: 30, label: 'Son 30 gün' },
   { id: 0, label: 'Tümü' },
 ] as const;
+/** "261009-gs-kasimpasa" → "Galatasaray – Kasımpaşa" */
+const matchLabel = (id: string) => {
+  const m = allMatches.find((x) => x.id === id);
+  return m ? `${team(m.home).name} – ${team(m.away).name}` : id;
+};
 const statTotal = (s: Record<StatAction, number>) => STAT_COLS.reduce((n, c) => n + s[c.id], 0);
 
 /** Taraftarın mekanlar için yaptığı işlemler (anonim, günlük sayaç) + Excel dökümü */
@@ -1035,6 +1052,13 @@ function StatsTab({ cafes }: { cafes: Cafe[] | null }) {
   const [range, setRange] = useState<number>(30);
   const [days, setDays] = useState<StatDay[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Panelden eklenen rehber mekanlarının adları da görünsün
+  const [fbVenues, setFbVenues] = useState<Venue[]>([]);
+  useEffect(() => {
+    adminListVenues()
+      .then((l) => setFbVenues(l ?? []))
+      .catch(() => {});
+  }, []);
 
   const today = ymdIstanbul(new Date());
   const from = range ? addDays(today, -(range - 1)) : null;
@@ -1049,15 +1073,25 @@ function StatsTab({ cafes }: { cafes: Cafe[] | null }) {
   // Mekan bilgisi: anlaşmalılar Firebase'den, rehber paketten
   const info = useMemo(() => {
     const m = new Map<string, { name: string; type: string; city: string; district: string; phone: string }>();
-    for (const v of bundledVenues) m.set(v.id, { name: v.name, type: 'Rehber', city: v.city, district: v.district, phone: v.phone ?? '' });
+    for (const v of [...bundledVenues, ...fbVenues]) m.set(v.id, { name: v.name, type: 'Rehber', city: v.city, district: v.district, phone: v.phone ?? '' });
     for (const c of cafes ?? []) m.set(c.id, { name: c.name, type: c.plan === 'pro' ? 'Anlaşmalı (Pro)' : 'Anlaşmalı', city: c.city, district: c.district, phone: c.phone });
     return m;
-  }, [cafes]);
+  }, [cafes, fbVenues]);
   const describe = (id: string) => info.get(id) ?? { name: `(bilinmeyen mekan) ${id}`, type: '?', city: '', district: '', phone: '' };
+
+  // Site geneli kayıtlar (tekil ziyaretçi, maç sayfaları) mekan tablosuna karışmasın
+  const site = useMemo(() => (days ?? []).filter((d) => d.venueId === SITE_STAT_ID).sort((a, b) => b.date.localeCompare(a.date)), [days]);
+  const matchViews = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const d of days ?? []) if (d.venueId.startsWith('mac-')) m.set(d.venueId.slice(4), (m.get(d.venueId.slice(4)) ?? 0) + d.view);
+    return [...m.entries()].sort((a, b) => b[1] - a[1]);
+  }, [days]);
+  const venueDays = useMemo(() => (days ?? []).filter((d) => d.venueId !== SITE_STAT_ID && !d.venueId.startsWith('mac-')), [days]);
+  const visitors = site.reduce((n, d) => n + d.view, 0);
 
   const totals = useMemo(() => {
     const m = new Map<string, Record<StatAction, number> & { first: string; last: string }>();
-    for (const d of days ?? []) {
+    for (const d of venueDays) {
       const t = m.get(d.venueId) ?? { seat: 0, wa: 0, call: 0, dir: 0, view: 0, first: d.date, last: d.date };
       for (const c of STAT_COLS) t[c.id] += d[c.id];
       if (d.date < t.first) t.first = d.date;
@@ -1065,7 +1099,7 @@ function StatsTab({ cafes }: { cafes: Cafe[] | null }) {
       m.set(d.venueId, t);
     }
     return [...m.entries()].map(([id, t]) => ({ id, ...t, total: statTotal(t) })).sort((a, b) => b.total - a.total);
-  }, [days]);
+  }, [venueDays]);
   const sum = STAT_COLS.map((c) => totals.reduce((n, t) => n + t[c.id], 0));
 
   function exportXlsx() {
@@ -1080,7 +1114,7 @@ function StatsTab({ cafes }: { cafes: Cafe[] | null }) {
     ];
     const daily: Cell[][] = [
       ['Tarih', ...head, ...STAT_COLS.map((c) => c.label), 'Toplam'],
-      ...[...(days ?? [])]
+      ...[...venueDays]
         .sort((a, b) => b.date.localeCompare(a.date) || statTotal(b) - statTotal(a))
         .map((d) => [d.date, ...where(d.venueId), ...STAT_COLS.map((c) => d[c.id]), statTotal(d)]),
     ];
@@ -1088,6 +1122,8 @@ function StatsTab({ cafes }: { cafes: Cafe[] | null }) {
     downloadXlsx(`neredemac-analitik-${from ?? 'tumu'}_${today}.xlsx`, [
       { name: 'Mekanlar', rows: summary, widths: [...widths, 12, 12] },
       { name: 'Günlük', rows: daily, widths: [12, ...widths] },
+      { name: 'Site', rows: [['Tarih', 'Tekil ziyaretçi'], ...site.map((d) => [d.date, d.view])], widths: [12, 16] },
+      { name: 'Maç sayfaları', rows: [['Maç', 'Tarih', 'Görüntüleme'], ...matchViews.map(([id, n]) => [matchLabel(id), id.slice(0, 6), n])], widths: [36, 10, 14] },
     ]);
   }
 
@@ -1113,7 +1149,32 @@ function StatsTab({ cafes }: { cafes: Cafe[] | null }) {
       </div>
       {error && <div className="form-error">{error}</div>}
       {days === null && !error && <div className="skeleton" style={{ height: 160 }} />}
-      {days?.length === 0 && <p className="faint">Bu aralıkta henüz tıklama yok.</p>}
+      {days && (
+        <div className="stat-cards">
+          <div className="stat">
+            <b>{visitors}</b>
+            <span>tekil ziyaretçi (gün gün toplam)</span>
+          </div>
+          <div className="stat">
+            <b>{site.find((d) => d.date === today)?.view ?? 0}</b>
+            <span>bugün tekil ziyaretçi</span>
+          </div>
+          <div className="stat">
+            <b>{sum.reduce((a, b) => a + b, 0)}</b>
+            <span>mekan tıklaması</span>
+          </div>
+          <div className="stat">
+            <b>{matchViews.reduce((n, [, v]) => n + v, 0)}</b>
+            <span>maç sayfası görüntüleme</span>
+          </div>
+        </div>
+      )}
+      {matchViews.length > 0 && (
+        <p className="faint" style={{ fontSize: 13.5, margin: '-4px 0 14px' }}>
+          En çok bakılan maçlar: {matchViews.slice(0, 3).map(([id, n]) => `${matchLabel(id)} (${n})`).join(' · ')}
+        </p>
+      )}
+      {days && venueDays.length === 0 && <p className="faint">Bu aralıkta henüz mekan tıklaması yok.</p>}
       {totals.length > 0 && (
         <div style={{ overflowX: 'auto' }}>
           <table className="admin-table stats-table">
@@ -1176,6 +1237,11 @@ function VenuesTab() {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [show, setShow] = useState<'all' | 'ok' | 'stale' | 'hidden'>('all');
+  const [cityPick, setCityPick] = useState<string>('all');
+  const [q, setQ] = useState('');
+  /** Açık form: yeni mekan (null id) ya da yeniden doğrulanan mekan */
+  const [editing, setEditing] = useState<Venue | 'new' | null>(null);
 
   const load = useCallback(() => {
     adminListVenues()
@@ -1184,12 +1250,28 @@ function VenuesTab() {
   }, []);
   useEffect(load, [load]);
 
+  const all = list ?? bundledVenues;
+  const now = new Date();
+  const today = ymdIstanbul(now);
+  const counts = { ok: 0, stale: 0, hidden: 0 };
+  for (const v of all) {
+    if (v.hidden) counts.hidden++;
+    else if (isTrusted(v, now)) counts.ok++;
+    else counts.stale++;
+  }
+  const term = q.trim().toLocaleLowerCase('tr-TR');
+  const rows = all
+    .filter((v) => cityPick === 'all' || v.city === cityPick)
+    .filter((v) => !term || `${v.name} ${v.address}`.toLocaleLowerCase('tr-TR').includes(term))
+    .filter((v) => (show === 'all' ? true : show === 'hidden' ? !!v.hidden : !v.hidden && (show === 'ok') === isTrusted(v, now)))
+    .sort((a, b) => (b.evidenceDate ?? '').localeCompare(a.evidenceDate ?? ''));
+
   async function upload() {
     setBusy(true);
     setError(null);
     try {
       const n = await adminImportVenues();
-      setMsg(`${n} mekan Firebase’e yazıldı. Gizlediklerin gizli kaldı.`);
+      setMsg(n ? `Paketteki ${n} yeni mekan Firebase’e eklendi. Mevcut kayıtlar ve düzenlemelerin değişmedi.` : 'Paketteki bütün mekanlar zaten Firebase’de.');
       load();
     } catch (e) {
       setError(friendly(e));
@@ -1199,40 +1281,373 @@ function VenuesTab() {
   }
 
   async function toggle(v: Venue) {
-    await adminSetVenueHidden(v.id, !v.hidden);
-    setList((all) => (all ?? []).map((x) => (x.id === v.id ? { ...x, hidden: !v.hidden } : x)));
+    try {
+      await adminSaveVenue({ ...v, hidden: !v.hidden });
+      load();
+    } catch (e) {
+      setError(friendly(e));
+    }
   }
+
+  async function feature(v: Venue, until: string | null) {
+    try {
+      await adminSetFeatured('venue', v.id, until);
+      load();
+    } catch (e) {
+      setError(friendly(e));
+    }
+  }
+
+  const statusOf = (v: Venue) => (v.hidden ? { t: 'Gizli', cls: 'off' } : trustStatus(v, now) === 'ok' ? { t: 'Sitede', cls: 'ok' } : { t: 'Kanıt eski · gizli', cls: 'off' });
 
   return (
     <section className="card panel-card">
       <h2>Rehber mekanları</h2>
       <p>
-        Maç verdiği taraftar yorumlarıyla doğrulanmış, anlaşmalı olmayan mekanlar. Liste <code>data/rehber.json</code>’dan gelir; Firebase’e
-        yükleyince buradan gizleyip açabilirsin. Anlaşmalı bir mekan aynı telefonla kayıt olursa sitede rehber kaydı kendiliğinden gizlenir.
+        Anlaşmalı olmayan, maç verdiği taraftar yorumlarıyla doğrulanmış mekanlar. <b>Güvenilirlik kuralı:</b> maç izlendiğini yazan en yeni yorum
+        son {FRESH_MONTHS} ay içindeyse ya da son {MAX_MONTHS} ayda en az {MIN_RECENT} yorum varsa mekan sitede görünür; kanıt eskiyince kendiliğinden
+        gizlenir. Google Maps’te yorumlarda “maç” diye arat, en yeni yorumun tarihini girip yeniden doğrula.
       </p>
       {error && <div className="form-error">{error}</div>}
       {msg && <div className="trial-note" style={{ marginBottom: 12 }}>{msg}</div>}
-      <button className="btn btn-primary btn-sm" onClick={upload} disabled={busy} style={{ marginBottom: 12 }}>
-        <UploadCloud size={15} /> {busy ? 'Yükleniyor…' : list === null ? `${bundledVenues.length} mekanı Firebase’e yükle` : 'Paketteki listeyle güncelle'}
-      </button>
-      {list === null && <p className="faint" style={{ fontSize: 14 }}>Firebase’de henüz rehber yok; site şimdilik paketteki listeyi gösteriyor.</p>}
+
+      <div className="admin-toolbar" style={{ marginBottom: 12 }}>
+        <button className="btn btn-primary btn-sm" onClick={() => setEditing('new')}>
+          <Plus size={15} /> Yeni mekan ekle
+        </button>
+        <button className="btn btn-soft btn-sm" onClick={upload} disabled={busy}>
+          <UploadCloud size={15} /> {busy ? 'Yükleniyor…' : list === null ? `${bundledVenues.length} mekanı Firebase’e yükle` : 'Paketteki yeni mekanları ekle'}
+        </button>
+        <span className="faint" style={{ fontSize: 13.5 }}>
+          Sitede <b>{counts.ok}</b> · kanıtı eski <b>{counts.stale}</b> · gizli <b>{counts.hidden}</b>
+        </span>
+      </div>
+      {list === null && <p className="faint" style={{ fontSize: 14 }}>Firebase’de henüz rehber yok; site paketteki listeyi gösteriyor. İlk düzenlemede liste otomatik yüklenir.</p>}
+
+      <AnimatePresence>
+        {editing && (
+          <VenueForm
+            key={editing === 'new' ? 'new' : editing.id}
+            initial={editing === 'new' ? null : editing}
+            existingIds={all.map((v) => v.id)}
+            onCancel={() => setEditing(null)}
+            onSaved={(v) => {
+              setEditing(null);
+              setMsg(`${v.name} kaydedildi${isTrusted(v) ? ', sitede görünüyor.' : '. Kanıt eski olduğu için sitede görünmüyor.'}`);
+              load();
+            }}
+          />
+        )}
+      </AnimatePresence>
+
+      <div className="admin-toolbar" style={{ marginBottom: 10 }}>
+        <div className="seg" role="group" aria-label="Durum">
+          {(
+            [
+              ['all', 'Tümü'],
+              ['ok', 'Sitede'],
+              ['stale', 'Kanıtı eski'],
+              ['hidden', 'Gizli'],
+            ] as const
+          ).map(([id, label]) => (
+            <button key={id} aria-pressed={show === id} onClick={() => setShow(id)}>
+              {show === id && <motion.span layoutId="venue-show" className="seg-thumb" />}
+              {label}
+            </button>
+          ))}
+        </div>
+        <select className="input" style={{ width: 'auto', height: 38 }} value={cityPick} onChange={(e) => setCityPick(e.target.value)} aria-label="Şehir">
+          <option value="all">Bütün şehirler</option>
+          {cities.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.name}
+            </option>
+          ))}
+        </select>
+        <div className="admin-search">
+          <Search size={16} />
+          <input className="input" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Mekan ara" />
+        </div>
+      </div>
+
       {list === undefined && !error && <div className="skeleton" style={{ height: 120 }} />}
       {list !== undefined &&
-        (list ?? bundledVenues).map((v) => (
-          <div key={v.id} className="res-item" style={v.hidden ? { opacity: 0.5 } : undefined}>
-            <div className="who">
-              <b>{v.name}</b>
-              <span>
-                {cityById(v.city)?.name} / {districtName(v.city, v.district)} · {v.phone ? formatPhone(v.phone) : 'telefon yok'} · {v.evidence}
-              </span>
+        rows.map((v) => {
+          const st = statusOf(v);
+          const featured = isFeatured(v, today);
+          return (
+            <div key={v.id} className="res-item venue-row">
+              <div className="who">
+                <b>
+                  {v.name} {featured && <span className="badge badge-pro">Öne çıkan · {fmtDay(v.featuredUntil!)}’e kadar</span>}
+                </b>
+                <span>
+                  {cityById(v.city)?.name} / {districtName(v.city, v.district)} · {v.phone ? formatPhone(v.phone) : 'telefon yok'} ·{' '}
+                  {v.evidenceDate ? `en yeni maç yorumu ${evidenceMonth(v.evidenceDate)}${v.evidenceCount ? ` · ${v.evidenceCount} yorum` : ''}` : 'kanıt tarihi yok'}
+                </span>
+              </div>
+              <span className={`ac-status ${st.cls}`}>{st.t}</span>
+              <div className="venue-actions">
+                <button className="btn btn-soft btn-sm" onClick={() => setEditing(v)}>
+                  <RefreshCw size={14} /> Yeniden doğrula
+                </button>
+                <FeatureControl until={v.featuredUntil ?? null} today={today} onSet={(d) => feature(v, d)} />
+                <button className="btn btn-ghost btn-sm" onClick={() => toggle(v)}>
+                  {v.hidden ? <Eye size={15} /> : <EyeOff size={15} />} {v.hidden ? 'Göster' : 'Gizle'}
+                </button>
+                <a className="btn btn-ghost btn-sm" href={v.mapsUrl || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${v.name} ${v.address}`)}`} target="_blank" rel="noopener noreferrer">
+                  <ExternalLink size={14} /> Maps
+                </a>
+                <Link className="btn btn-ghost btn-sm" href={`/mekan/${v.id}`}>
+                  Profil
+                </Link>
+              </div>
             </div>
-            {list && (
-              <button className="btn btn-ghost btn-sm" onClick={() => toggle(v)}>
-                {v.hidden ? <Eye size={15} /> : <EyeOff size={15} />} {v.hidden ? 'Göster' : 'Gizle'}
-              </button>
-            )}
-          </div>
-        ))}
+          );
+        })}
     </section>
+  );
+}
+
+const fmtDay = (ymd: string) => new Intl.DateTimeFormat('tr-TR', { day: 'numeric', month: 'long' }).format(new Date(`${ymd}T12:00:00+03:00`));
+
+/** Öne çıkarma: son günü seçip aç, ya da kaldır (ücretli "Derbi boost" vb.) */
+function FeatureControl({ until, today, onSet }: { until: string | null; today: string; onSet: (until: string | null) => void }) {
+  const [open, setOpen] = useState(false);
+  const [day, setDay] = useState(until && until >= today ? until : addDays(today, 2));
+  if (until && until >= today && !open) {
+    return (
+      <button className="btn btn-ghost btn-sm" onClick={() => onSet(null)}>
+        <Star size={14} /> Öne çıkarmayı kaldır
+      </button>
+    );
+  }
+  if (!open) {
+    return (
+      <button className="btn btn-ghost btn-sm" onClick={() => setOpen(true)}>
+        <Star size={14} /> Öne çıkar
+      </button>
+    );
+  }
+  return (
+    <span className="feature-pick">
+      <input type="date" className="input" value={day} min={today} onChange={(e) => setDay(e.target.value)} aria-label="Öne çıkarmanın son günü" />
+      <button
+        className="btn btn-primary btn-sm"
+        onClick={() => {
+          onSet(day);
+          setOpen(false);
+        }}
+      >
+        Kaydet
+      </button>
+      <button className="btn btn-ghost btn-sm" onClick={() => setOpen(false)}>
+        Vazgeç
+      </button>
+    </span>
+  );
+}
+
+/**
+ * Rehber mekanı ekleme / yeniden doğrulama. Maç yayını kanıtı (not + en yeni yorum tarihi) olmadan kaydedilmez:
+ * sitede maç vermeyen bir işletme görünmesin.
+ */
+function VenueForm({ initial, existingIds, onCancel, onSaved }: { initial: Venue | null; existingIds: string[]; onCancel: () => void; onSaved: (v: Venue) => void }) {
+  const today = ymdIstanbul(new Date());
+  const [v, setV] = useState<Venue>(
+    initial ?? {
+      id: '',
+      name: '',
+      kind: 'Pub',
+      city: DEFAULT_CITY,
+      district: cityById(DEFAULT_CITY)!.districts[0].id,
+      address: '',
+      lat: cityById(DEFAULT_CITY)!.districts[0].center[0],
+      lng: cityById(DEFAULT_CITY)!.districts[0].center[1],
+      phone: '',
+      features: { bigScreen: false, alcohol: true, hookah: false, garden: false },
+      rating: null,
+      reviews: null,
+      evidence: '',
+      evidenceDate: null,
+      evidenceCount: null,
+    },
+  );
+  const [phone, setPhone] = useState(initial?.phone ? formatPhone(initial.phone) : '');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const set = <K extends keyof Venue>(k: K, val: Venue[K]) => setV((p) => ({ ...p, [k]: val }));
+  const preview = trustStatus(v);
+
+  async function save(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    if (v.name.trim().length < 2) return setError('Mekan adını yaz.');
+    if (v.address.trim().length < 5) return setError('Açık adresi yaz.');
+    if (v.evidence.trim().length < 8) return setError('Maç yayını kanıtını yaz: Google yorumu, Instagram paylaşımı ya da mekanın kendi beyanı (bağlantıyla).');
+    if (!v.evidenceDate) return setError('Maç izlendiğini yazan en yeni yorumun/paylaşımın tarihini seç.');
+    if (v.evidenceDate > today) return setError('Kanıt tarihi bugünden ileri olamaz.');
+    const digits = phone.replace(/\D/g, '');
+    const normPhone = !digits ? '' : digits.startsWith('90') ? digits : `90${digits.replace(/^0/, '')}`;
+    if (normPhone && normPhone.length !== 12) return setError('Telefon numarası eksik görünüyor.');
+    let id = v.id;
+    if (!id) {
+      const base = `${v.city.slice(0, 3)}-${slugify(v.name)}`.slice(0, 70);
+      id = base;
+      for (let n = 2; existingIds.includes(id); n++) id = `${base}-${n}`;
+    }
+    const out: Venue = {
+      ...v,
+      id,
+      name: v.name.trim(),
+      address: v.address.trim(),
+      evidence: v.evidence.trim(),
+      phone: normPhone,
+      instagram: v.instagram?.replace(/^@/, '').trim() || undefined,
+      mapsUrl: v.mapsUrl?.trim() || undefined,
+      evidenceCount: v.evidenceCount && v.evidenceCount > 0 ? Math.round(v.evidenceCount) : null,
+    };
+    setBusy(true);
+    try {
+      await adminSaveVenue(out);
+      onSaved(out);
+    } catch (err) {
+      setError(friendly(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const cityInfo = cityById(v.city)!;
+  return (
+    <motion.form className="venue-form" onSubmit={save} initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}>
+      <h3>{initial ? `${initial.name} · yeniden doğrula` : 'Yeni rehber mekanı'}</h3>
+      <div className="row-2">
+        <div className="field">
+          <label htmlFor="vf-name">Mekan adı</label>
+          <input id="vf-name" className="input" value={v.name} onChange={(e) => set('name', e.target.value)} />
+        </div>
+        <div className="field">
+          <label htmlFor="vf-kind">Tür</label>
+          <select id="vf-kind" className="input" value={v.kind} onChange={(e) => set('kind', e.target.value as CafeKind)}>
+            {CAFE_KINDS.map((k) => (
+              <option key={k}>{k}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+      <div className="row-2">
+        <div className="field">
+          <label htmlFor="vf-city">Şehir</label>
+          <select
+            id="vf-city"
+            className="input"
+            value={v.city}
+            onChange={(e) => {
+              const d = cityById(e.target.value)!.districts[0];
+              setV((p) => ({ ...p, city: e.target.value, district: d.id, lat: d.center[0], lng: d.center[1] }));
+            }}
+          >
+            {cities.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="field">
+          <label htmlFor="vf-district">Semt</label>
+          <select id="vf-district" className="input" value={v.district} onChange={(e) => set('district', e.target.value)}>
+            {cityInfo.districts.map((d) => (
+              <option key={d.id} value={d.id}>
+                {d.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+      <div className="field">
+        <label htmlFor="vf-address">Açık adres</label>
+        <input id="vf-address" className="input" value={v.address} onChange={(e) => set('address', e.target.value)} placeholder="Mahalle, cadde/sokak, no, ilçe" />
+      </div>
+      <div className="field">
+        <span className="label">Konum</span>
+        <LocationPicker value={{ lat: v.lat, lng: v.lng }} onChange={(p) => setV((x) => ({ ...x, lat: p.lat, lng: p.lng }))} />
+      </div>
+      <div className="row-3">
+        <div className="field">
+          <label htmlFor="vf-phone">Telefon / WhatsApp</label>
+          <input id="vf-phone" className="input" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="0532 … ya da 0312 …" />
+        </div>
+        <div className="field">
+          <label htmlFor="vf-ig">Instagram</label>
+          <input id="vf-ig" className="input" value={v.instagram ?? ''} onChange={(e) => set('instagram', e.target.value)} placeholder="kullaniciadi" />
+        </div>
+        <div className="field">
+          <label htmlFor="vf-maps">Google Maps bağlantısı</label>
+          <input id="vf-maps" className="input" value={v.mapsUrl ?? ''} onChange={(e) => set('mapsUrl', e.target.value)} placeholder="https://maps.app.goo.gl/…" />
+        </div>
+      </div>
+      <div className="venue-flags">
+        {(
+          [
+            ['bigScreen', 'Dev ekran / projeksiyon'],
+            ['alcohol', 'Alkol var'],
+            ['hookah', 'Nargile'],
+            ['garden', 'Açık alan'],
+          ] as const
+        ).map(([k, label]) => (
+          <label key={k} className="check">
+            <input type="checkbox" checked={v.features[k]} onChange={(e) => set('features', { ...v.features, [k]: e.target.checked })} /> {label}
+          </label>
+        ))}
+      </div>
+      <fieldset className="evidence-box">
+        <legend>Maç yayını kanıtı (zorunlu)</legend>
+        <div className="field">
+          <label htmlFor="vf-ev">Kanıt notu</label>
+          <input
+            id="vf-ev"
+            className="input"
+            value={v.evidence}
+            onChange={(e) => set('evidence', e.target.value)}
+            placeholder="ör. Google yorumu: “GS-FB derbisini izledik” / Instagram derbi duyurusu bağlantısı"
+          />
+        </div>
+        <div className="row-2">
+          <div className="field">
+            <label htmlFor="vf-evd">En yeni maç yorumunun / paylaşımının tarihi</label>
+            <input id="vf-evd" className="input" type="date" max={today} value={v.evidenceDate ?? ''} onChange={(e) => set('evidenceDate', e.target.value || null)} />
+          </div>
+          <div className="field">
+            <label htmlFor="vf-evc">Son 11 aydaki maç yorumu sayısı</label>
+            <input
+              id="vf-evc"
+              className="input"
+              type="number"
+              min={0}
+              value={v.evidenceCount ?? ''}
+              onChange={(e) => set('evidenceCount', e.target.value === '' ? null : Number(e.target.value))}
+            />
+          </div>
+        </div>
+        <p className={preview === 'ok' ? 'hint' : 'hint warn'}>
+          {preview === 'ok'
+            ? 'Bu kanıtla mekan sitede görünür.'
+            : preview === 'none'
+              ? 'Tarih girilmeden mekan sitede görünmez.'
+              : `Kanıt eski: en yeni yorum son ${FRESH_MONTHS} ayda değil ve son ${MAX_MONTHS} ayda ${MIN_RECENT} yorum yok. Kaydedilir ama sitede görünmez.`}
+        </p>
+      </fieldset>
+      {error && <div className="form-error">{error}</div>}
+      <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+        <button type="button" className="btn btn-ghost btn-sm" onClick={onCancel}>
+          Vazgeç
+        </button>
+        <button className="btn btn-primary btn-sm" disabled={busy}>
+          {busy ? 'Kaydediliyor…' : 'Kaydet'}
+        </button>
+      </div>
+    </motion.form>
   );
 }

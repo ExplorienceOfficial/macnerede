@@ -23,10 +23,22 @@ klonlayıp çalıştırınca site doğrudan `macnerede-58592` projesine bağlan�
 |---|---|
 | `/` | Bu haftanın maçları, gün sekmeleri (`?gun=bugun\|yarin\|haftasonu`), takım/şehir seçimi (varsayılan Ankara), popüler semtler, sıradaki maç + geri sayım (başlayınca "Oynanıyor", bitince "Maç sona erdi") |
 | `/[sehir]/[ev]-[deplasman]-maci` | Maçı veren mekanlar, ör. `/ankara/galatasaray-kasimpasa-maci`: semt (`?semt=`), filtreler (ses, dev ekran, açık alan, girişsiz, alkol, nargile, ₺/₺₺/₺₺₺), harita, WhatsApp ile yer ayırtma. Eski `/mac/[id]?sehir=` adresleri buraya kalıcı yönlenir |
+| `/mekan/[id]` | Rehber mekanının profili (mekanlara gönderilen bağlantı): adres, telefon, yol tarifi, bu haftanın maçları, "Bu işletmenin sahibi misiniz?". Kanıtı eskimişse açılmaz |
 | `/kafe/[id]` | Anlaşmalı mekan detayı, telefon/ara, fotoğraf galerisi, bu hafta verdiği maçlar |
 | `/kayit` | **Kısa başvuru** (ad, şehir/semt, WhatsApp — şimdilik ücretsiz); isteyen 5 adımlı formla profilini kendisi kurar. `?mekan=<rehber id>` rehberdeki mekanın bilgilerini doldurur |
 | `/giris` · `/panel` | Mekan girişi (Google ya da e-posta/şifre, şifremi unuttum dahil) ve paneli: maç aç/kapa, fotoğraflar, mekan bilgileri, üyelik |
 | `/yonetim` | **Admin paneli** (Google ile giriş): bu haftanın maçları, analitik (mekan başına tıklamalar + Excel indirme), tüm mekanlar + üyelik işlemleri, başvurular, rehber (Firebase'e yükle, gizle/göster), mekan adına hesap açma, ödemeler, aktivasyon kodları |
+
+## Güvenilirlik: maç vermeyen mekan listede görünmez
+
+Rehber mekanında `evidenceDate` (maç izlendiğini yazan en yeni Google yorumunun/paylaşımın tarihi) ve `evidenceCount`
+(son 11 aydaki maç yorumu sayısı) tutulur. Mekan sitede ancak **en yeni kanıt son 6 ay içindeyse** ya da **son 11 ayda en az
+3 maç yorumu varsa** görünür (`lib/venues.ts` → `isTrusted`). Kanıt eskiyince mekan listelerden, haritadan, profil sayfasından
+ve site haritasından kendiliğinden düşer. Yönetim → Rehber'de "Yeniden doğrula" ile yeni tarih girilince geri gelir; yeni mekan
+kanıt tarihi olmadan kaydedilemez. Doğrulama: Google Maps'te mekanın yorumlarında "maç" diye arat, en yeni yorumun tarihine bak.
+
+"Bu işletmenin sahibi misiniz?" butonu `.env`'deki `NEXT_PUBLIC_CONTACT_WHATSAPP` hattına hazır mesajla yazar (boşsa başvuru formu).
+Öne çıkarma (ücretli): Yönetim → Rehber/Mekanlar → "Öne çıkar", son gün seçilir; o güne kadar şehrin listesinde en üstte, "Öne çıkan" etiketiyle.
 
 ## Fikstür
 
@@ -58,7 +70,7 @@ ancak kodu **aynı işlemde** kullanarak açılabilir (kod iki kez kullanılamaz
 kodları sadece yönetici (`kagankarki03@gmail.com`, Google ile) listeleyip oluşturabilir; rehberi sadece yönetici yazar;
 başvurular sadece belirli alanlarla ve sunucu saatiyle oluşturulabilir.
 
-Kuralların testi (Firebase emülatörü, Java gerekir): `npm run test:rules` — 20 senaryo.
+Kuralların testi (Firebase emülatörü, Java gerekir): `npm run test:rules` — 22 senaryo.
 
 ## Yer ayırtma (WhatsApp)
 

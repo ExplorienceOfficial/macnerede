@@ -99,6 +99,21 @@ await check('başvuruları sadece yönetici okur ve siler', async () => {
   await assertSucceeds(deleteDoc(doc(admin(), 'leads/l1')));
 });
 
+console.log('Öne çıkarma:');
+const cafeDoc = { name: 'Moda Pub', plan: 'standart', membership: { status: 'trial' }, phone: '905321234567', capacity: 50 };
+await check('mekan kendini öne çıkaramaz, diğer bilgisini güncelleyebilir', async () => {
+  await seedDoc('cafes/cafe1', cafeDoc);
+  await assertFails(updateDoc(doc(cafe(), 'cafes/cafe1'), { featuredUntil: '2099-01-01' }));
+  await assertSucceeds(updateDoc(doc(cafe(), 'cafes/cafe1'), { name: 'Moda Pub 2' }));
+});
+await check('yönetici mekanı ve rehber kaydını öne çıkarır', async () => {
+  await seedDoc('cafes/cafe1', cafeDoc);
+  await seedDoc('venues/v1', venue);
+  await assertSucceeds(updateDoc(doc(admin(), 'cafes/cafe1'), { featuredUntil: '2026-10-12' }));
+  await assertSucceeds(updateDoc(doc(admin(), 'venues/v1'), { featuredUntil: '2026-10-12' }));
+  await assertFails(updateDoc(doc(cafe(), 'venues/v1'), { featuredUntil: '2026-10-12' }));
+});
+
 console.log('Analitik:');
 const stat = (action) => ({ venueId: 'v1', date: '2026-10-10', [action]: increment(1) });
 await check('giriş yapmadan sayaç açılır ve 1 artırılır', async () => {

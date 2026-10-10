@@ -18,10 +18,12 @@ interface Props {
   active: boolean;
   onSeat: (cafeId: string) => void;
   onFocus: (cafeId: string) => void;
+  /** Ücretli öne çıkarma süresi içinde */
+  featured?: boolean;
 }
 
-export default function CafeCard({ cafe, b, index, active, onSeat, onFocus }: Props) {
-  const pro = cafe.plan === 'pro';
+export default function CafeCard({ cafe, b, index, active, onSeat, onFocus, featured }: Props) {
+  const pro = cafe.plan === 'pro' || !!featured;
   const wa = hasWhatsApp(cafe.phone);
 
   return (

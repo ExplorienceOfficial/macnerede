@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { AnimatePresence, LayoutGroup, motion } from 'motion/react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ArrowRight, Check, ChevronDown, ChevronLeft, List, Map as MapIcon, MapPin, X } from 'lucide-react';
 import Crest from './Crest';
 import Countdown from './Countdown';
@@ -12,12 +12,13 @@ import CafeMap from './CafeMap';
 import SeatSheet, { type SeatPlace } from './SeatSheet';
 import { CityPicker, CompBadge, StadiumBackdrop } from './bits';
 import { PitchLines, TvIllustration } from './art';
-import { bigTeamsIn, matchPath, withStatus, type Match, type MatchInfo } from '@/lib/fixtures';
+import { bigTeamsIn, matchPath, withStatus, ymdIstanbul, type Match, type MatchInfo } from '@/lib/fixtures';
 import { useCity, useListings, useNow } from '@/lib/hooks';
 import { cityById, locative } from '@/lib/places';
 import { SITE_NAME } from '@/lib/site';
+import { matchStatId, track } from '@/lib/db';
 import { stadiumFor, team, type BigTeam } from '@/lib/teams';
-import { priceLevel, type Broadcast, type Cafe, type Venue } from '@/lib/types';
+import { isFeatured, priceLevel, type Broadcast, type Cafe, type Venue } from '@/lib/types';
 
 type FilterId = 'sound' | 'big' | 'alcohol' | 'hookah' | 'garden' | 'free' | `fan-${BigTeam}`;
 /** Bu bilgiler sadece anlaşmalı mekanlarda var; rehber mekanları bu filtrelerle elenir */
@@ -40,6 +41,9 @@ export default function MatchView({ match, city: initialCity, initialDistrict, n
   const cityInfo = cityById(city)!;
   const now = useNow(30_000);
   const finished = now === null ? match.finished : withStatus(match, now).finished;
+  const today = ymdIstanbul(now === null ? new Date() : new Date(now));
+  // Hangi maç sayfasına kaç kişi baktı (Yönetim → Analitik)
+  useEffect(() => track(matchStatId(match.id), 'view'), [match.id]);
 
   const [district, setDistrict] = useState(initialDistrict && cityInfo.districts.some((d) => d.id === initialDistrict) ? initialDistrict : 'all');
   const [filters, setFilters] = useState<Set<FilterId>>(new Set());
@@ -110,6 +114,10 @@ export default function MatchView({ match, city: initialCity, initialDistrict, n
         return true;
       })
       .sort((x, y) => {
+        // Öne çıkarılan (ücretli) mekanlar en üstte, kartta "Öne çıkan" yazar
+        const fx = isFeatured(place(x), today);
+        const fy = isFeatured(place(y), today);
+        if (fx !== fy) return fx ? -1 : 1;
         if (x.type !== y.type) return x.type === 'cafe' ? -1 : 1;
         if (x.type === 'cafe' && y.type === 'cafe') {
           return (
@@ -119,7 +127,7 @@ export default function MatchView({ match, city: initialCity, initialDistrict, n
         }
         return ((y as { v: Venue }).v.reviews ?? 0) - ((x as { v: Venue }).v.reviews ?? 0);
       });
-  }, [inCity, district, filters, budget, fanTeams, partnerOnlyActive]);
+  }, [inCity, district, filters, budget, fanTeams, partnerOnlyActive, today]);
 
   const partnerCount = rows.filter((r) => r.type === 'cafe').length;
 
@@ -302,9 +310,9 @@ export default function MatchView({ match, city: initialCity, initialDistrict, n
             <AnimatePresence mode="popLayout">
               {rows.map((r, i) =>
                 r.type === 'cafe' ? (
-                  <CafeCard key={r.id} cafe={r.c} b={r.b} index={i} active={active === r.id} onSeat={setSeating} onFocus={focus} />
+                  <CafeCard key={r.id} cafe={r.c} b={r.b} index={i} active={active === r.id} onSeat={setSeating} onFocus={focus} featured={isFeatured(r.c, today)} />
                 ) : (
-                  <VenueCard key={r.id} v={r.v} index={i} active={active === r.id} onSeat={setSeating} onFocus={focus} />
+                  <VenueCard key={r.id} v={r.v} index={i} active={active === r.id} onSeat={setSeating} onFocus={focus} featured={isFeatured(r.v, today)} />
                 ),
               )}
             </AnimatePresence>

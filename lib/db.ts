@@ -24,7 +24,7 @@ import {
 import { GoogleAuthProvider, createUserWithEmailAndPassword, onAuthStateChanged, sendPasswordResetEmail, signInWithEmailAndPassword, signInWithPopup, signOut } from 'firebase/auth';
 import { creatorAuth, firebase, firebaseEnabled } from './firebase';
 import { demoBroadcasts, demoCafes } from './demo-seed';
-import { bundledVenues } from './venues';
+import { bundledVenues, isTrusted } from './venues';
 import { ymdIstanbul } from './fixtures';
 import { CODE_PATTERN, MAX_PHOTOS, PERIODS, TRIAL_DAYS, periodPrice, type ActivationCode, type Broadcast, type Cafe, type CafePhoto, type Lead, type Payment, type PeriodId, type PlanId, type Venue } from './types';
 
@@ -59,7 +59,7 @@ function cafeFromDoc(d: DocumentSnapshot): Cafe {
 }
 
 // ---------------- demo depolama ----------------
-const K = { cafes: 'mn.cafes', bc: 'mn.broadcasts', acc: 'mn.accounts', session: 'mn.session', codes: 'mn.codes', photos: 'mn.photos', adminCodes: 'mn.adminCodes', payments: 'mn.payments', leads: 'mn.leads', hiddenVenues: 'mn.hiddenVenues', stats: 'mn.stats' };
+const K = { cafes: 'mn.cafes', bc: 'mn.broadcasts', acc: 'mn.accounts', session: 'mn.session', codes: 'mn.codes', photos: 'mn.photos', adminCodes: 'mn.adminCodes', payments: 'mn.payments', leads: 'mn.leads', hiddenVenues: 'mn.hiddenVenues', stats: 'mn.stats', venueEdits: 'mn.venueEdits' };
 const SESSION_EVENT = 'mn-session';
 
 function lsGet<T>(key: string, fallback: T): T {
@@ -151,48 +151,86 @@ export async function getCafe(id: string): Promise<Cafe | null> {
 // ---------------- rehber mekanları ----------------
 const venueFromDoc = (d: DocumentSnapshot): Venue => ({ ...(d.data() as Omit<Venue, 'id'>), id: d.id });
 
+/** Demo modunda yöneticinin eklediği/düzenlediği rehber kayıtları paketteki listenin üstüne yazılır */
+function demoVenues(): Venue[] {
+  const hidden = new Set(lsGet<string[]>(K.hiddenVenues, []));
+  const edits = lsGet<Record<string, Venue>>(K.venueEdits, {});
+  const all = new Map(bundledVenues.map((v) => [v.id, v]));
+  for (const v of Object.values(edits)) all.set(v.id, v);
+  return [...all.values()].map((v) => ({ ...v, hidden: hidden.has(v.id) || !!v.hidden }));
+}
+
+/** Firebase rehberi (doluysa) ya da paketteki liste; gizlenenler dahil */
+async function allVenues(): Promise<Venue[]> {
+  if (demoMode) return demoVenues();
+  const snap = await getDocs(collection(firebase().db, 'venues'));
+  return snap.empty ? bundledVenues : snap.docs.map(venueFromDoc);
+}
+
 /**
- * Rehber mekanları (gizlenenler hariç). Firebase'deki "venues" boşsa ya da okunamazsa paketteki liste kullanılır;
- * böylece yönetici listeyi yüklemeden önce de site boş kalmaz.
+ * Sitede gösterilen rehber mekanları: gizlenmemiş VE maç verdiğine dair kanıtı güncel olanlar (isTrusted).
+ * Kanıtı eskiyen mekan, yönetici yeniden doğrulayana kadar hiçbir listede görünmez.
+ * Firebase'deki "venues" boşsa ya da okunamazsa paketteki liste kullanılır.
  */
 export async function listVenues(): Promise<Venue[]> {
-  if (demoMode) {
-    const hidden = new Set(lsGet<string[]>(K.hiddenVenues, []));
-    return bundledVenues.filter((v) => !hidden.has(v.id));
-  }
+  const now = new Date();
+  const shown = (vs: Venue[]) => vs.filter((v) => !v.hidden && isTrusted(v, now));
   try {
-    const snap = await getDocs(collection(firebase().db, 'venues'));
-    if (snap.empty) return bundledVenues;
-    return snap.docs.map(venueFromDoc).filter((v) => !v.hidden);
+    return shown(await allVenues());
   } catch (e) {
     console.error('[rehber]', e);
-    return bundledVenues;
+    return shown(bundledVenues);
   }
 }
 
-/** Yönetici: Firebase'deki rehber, gizlenenler dahil. Henüz hiç yüklenmediyse null. */
+/** Tek rehber mekanı (mekan sayfası). Kanıtı eskimiş ya da gizlenmişse null: sayfa da açılmaz. */
+export async function getVenue(id: string): Promise<Venue | null> {
+  return (await listVenues()).find((v) => v.id === id) ?? null;
+}
+
+/** Yönetici: Firebase'deki rehber, gizlenenler ve kanıtı eskiyenler dahil. Henüz hiç yüklenmediyse null. */
 export async function adminListVenues(): Promise<Venue[] | null> {
-  if (demoMode) {
-    const hidden = new Set(lsGet<string[]>(K.hiddenVenues, []));
-    return bundledVenues.map((v) => ({ ...v, hidden: hidden.has(v.id) }));
-  }
+  if (demoMode) return demoVenues();
   const snap = await getDocs(collection(firebase().db, 'venues'));
   return snap.empty ? null : snap.docs.map(venueFromDoc);
 }
 
-/** Paketteki rehberi (data/rehber.json) Firebase'e yazar. Var olan kayıtların "gizli" işareti korunur. */
+/**
+ * Paketteki rehberi (data/rehber.json) Firebase'e yazar. Sadece Firebase'de olmayan mekanlar eklenir;
+ * yöneticinin panelden yaptığı düzenlemeler (kanıt tarihi, gizleme, öne çıkarma) ezilmez.
+ */
 export async function adminImportVenues(): Promise<number> {
   if (demoMode) {
     await wait(400);
-    return bundledVenues.length;
+    return 0;
   }
   const { db } = firebase();
-  for (let i = 0; i < bundledVenues.length; i += 400) {
+  const existing = new Set((await getDocs(collection(db, 'venues'))).docs.map((d) => d.id));
+  const missing = bundledVenues.filter((v) => !existing.has(v.id));
+  for (let i = 0; i < missing.length; i += 400) {
     const batch = writeBatch(db);
-    for (const { id, ...v } of bundledVenues.slice(i, i + 400)) batch.set(doc(db, 'venues', id), { ...v, updatedAt: serverTimestamp() }, { merge: true });
+    for (const { id, ...v } of missing.slice(i, i + 400)) batch.set(doc(db, 'venues', id), { ...v, updatedAt: serverTimestamp() });
     await batch.commit();
   }
-  return bundledVenues.length;
+  return missing.length;
+}
+
+/**
+ * Yönetici: rehber mekanı ekler ya da günceller (yeniden doğrulama dahil). Firebase rehberi henüz boşsa önce
+ * paketteki liste yüklenir; yoksa tek bir kayıt yazılınca site sadece onu gösterirdi.
+ */
+export async function adminSaveVenue(v: Venue): Promise<void> {
+  if (!v.evidenceDate) throw new Error('Maç yayını kanıtının tarihi olmadan mekan kaydedilmez.');
+  if (demoMode) {
+    lsSet(K.venueEdits, { ...lsGet<Record<string, Venue>>(K.venueEdits, {}), [v.id]: v });
+    return;
+  }
+  const { db } = firebase();
+  if ((await getDocs(query(collection(db, 'venues'), limit(1)))).empty) await adminImportVenues();
+  const { id, ...rest } = v;
+  // Firestore undefined kabul etmez
+  const clean = Object.fromEntries(Object.entries(rest).filter(([, x]) => x !== undefined));
+  await setDoc(doc(db, 'venues', id), { ...clean, updatedAt: serverTimestamp() });
 }
 
 export async function adminSetVenueHidden(id: string, hidden: boolean) {
@@ -206,6 +244,22 @@ export async function adminSetVenueHidden(id: string, hidden: boolean) {
   await updateDoc(doc(firebase().db, 'venues', id), { hidden });
 }
 
+/** Yönetici: öne çıkarmayı aç (until = son gün, YYYY-AA-GG) ya da kapat (null). Anlaşmalı mekan ya da rehber mekanı. */
+export async function adminSetFeatured(kind: 'cafe' | 'venue', id: string, until: string | null): Promise<void> {
+  if (demoMode) {
+    if (kind === 'venue') {
+      const v = demoVenues().find((x) => x.id === id);
+      if (v) lsSet(K.venueEdits, { ...lsGet<Record<string, Venue>>(K.venueEdits, {}), [id]: { ...v, featuredUntil: until } });
+    } else {
+      lsSet(K.cafes, lsGet<Cafe[]>(K.cafes, []).map((c) => (c.id === id ? { ...c, featuredUntil: until } : c)));
+    }
+    return;
+  }
+  const { db } = firebase();
+  if (kind === 'venue' && (await getDocs(query(collection(db, 'venues'), limit(1)))).empty) await adminImportVenues();
+  await updateDoc(doc(db, kind === 'cafe' ? 'cafes' : 'venues', id), { featuredUntil: until });
+}
+
 // ---------------- analitik: mekan başına günlük tıklama sayaçları ----------------
 /** seat: "Yerini ayırt" açıldı · wa: WhatsApp'a geçti · call: aradı · dir: yol tarifi · view: mekan sayfası */
 export type StatAction = 'seat' | 'wa' | 'call' | 'dir' | 'view';
@@ -216,12 +270,13 @@ export type StatDay = { venueId: string; date: string } & Record<StatAction, num
  * Taraftarın mekan için yaptığı işlemi sayar (kişisel veri yok). Aynı tarayıcı oturumunda aynı mekan + işlem
  * günde bir kez sayılır; tekrar tıklamalar sayıyı şişirmesin. Hata olursa sessizce geçer, kullanıcıyı durdurmaz.
  */
-export function track(venueId: string, action: StatAction) {
+export function track(venueId: string, action: StatAction, store: 'session' | 'browser' = 'session') {
   const date = ymdIstanbul(new Date());
   try {
+    const s = store === 'browser' ? localStorage : sessionStorage;
     const key = `mn.t.${date}.${venueId}.${action}`;
-    if (sessionStorage.getItem(key)) return;
-    sessionStorage.setItem(key, '1');
+    if (s.getItem(key)) return;
+    s.setItem(key, '1');
   } catch {}
   const id = `${venueId}_${date}`;
   if (demoMode) {
@@ -233,6 +288,13 @@ export function track(venueId: string, action: StatAction) {
   }
   setDoc(doc(firebase().db, 'stats', id), { venueId, date, [action]: increment(1) }, { merge: true }).catch((e) => console.warn('[analitik]', e));
 }
+
+/** Site geneli sayaçların "mekan" kimlikleri: tekil günlük ziyaretçi ve maç sayfası görüntülemeleri */
+export const SITE_STAT_ID = '_site';
+export const matchStatId = (matchId: string) => `mac-${matchId}`;
+
+/** Günlük tekil ziyaretçi: aynı tarayıcı günde bir kez sayılır */
+export const trackVisit = () => track(SITE_STAT_ID, 'view', 'browser');
 
 /** Yönetici: `from` tarihinden (YYYY-MM-DD, dahil) bugüne günlük sayaçlar; null = hepsi */
 export async function adminListStats(from: string | null): Promise<StatDay[]> {
