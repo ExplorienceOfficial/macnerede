@@ -26,7 +26,7 @@ klonlayıp çalıştırınca site doğrudan `macnerede-58592` projesine bağlan�
 | `/kafe/[id]` | Anlaşmalı mekan detayı, telefon/ara, fotoğraf galerisi, bu hafta verdiği maçlar |
 | `/kayit` | **Kısa başvuru** (ad, şehir/semt, WhatsApp — şimdilik ücretsiz); isteyen 5 adımlı formla profilini kendisi kurar. `?mekan=<rehber id>` rehberdeki mekanın bilgilerini doldurur |
 | `/giris` · `/panel` | Mekan girişi (Google ya da e-posta/şifre, şifremi unuttum dahil) ve paneli: maç aç/kapa, fotoğraflar, mekan bilgileri, üyelik |
-| `/yonetim` | **Admin paneli** (Google ile giriş): bu haftanın maçları, tüm mekanlar + üyelik işlemleri, başvurular, rehber (Firebase'e yükle, gizle/göster), mekan adına hesap açma, ödemeler, aktivasyon kodları |
+| `/yonetim` | **Admin paneli** (Google ile giriş): bu haftanın maçları, analitik (mekan başına tıklamalar + Excel indirme), tüm mekanlar + üyelik işlemleri, başvurular, rehber (Firebase'e yükle, gizle/göster), mekan adına hesap açma, ödemeler, aktivasyon kodları |
 
 ## Fikstür
 
@@ -49,6 +49,7 @@ Proje: `macnerede-58592`.
 | `broadcasts/{uid}_{matchId}` | Anlaşmalı mekanın vereceği maç: ses, giriş, min. harcama, "önceden yer ayırt" |
 | `venues/{id}` | Rehber mekanları (herkes okur, yönetici yazar). Boşsa site `data/rehber.json`'u gösterir; `hidden: true` listeden kaldırır |
 | `leads/{auto}` | Kısa başvurular: ad, şehir, semt, WhatsApp, varsa rehber id'si. Giriş gerekmez; sadece yönetici okur/siler |
+| `stats/{mekanId}_{YYYY-AA-GG}` | Analitik: mekan başına günlük sayaçlar (`seat` Yerini ayırt, `wa` WhatsApp, `call` arama, `dir` yol tarifi, `view` mekan sayfası). Kişisel veri yok; herkes bir sayacı sadece 1 artırabilir, sadece yönetici okur. Yönetim → Analitik'ten Excel (.xlsx) indirilir |
 | `payments/{id}` | Üyelik ödemeleri — sadece sunucu yazar |
 | `codes/{KOD}` | Tek seferlik aktivasyon kodu: `days`, `plan`, `used`, `usedBy`, `usedAt` |
 
@@ -57,7 +58,7 @@ ancak kodu **aynı işlemde** kullanarak açılabilir (kod iki kez kullanılamaz
 kodları sadece yönetici (`kagankarki03@gmail.com`, Google ile) listeleyip oluşturabilir; rehberi sadece yönetici yazar;
 başvurular sadece belirli alanlarla ve sunucu saatiyle oluşturulabilir.
 
-Kuralların testi (Firebase emülatörü, Java gerekir): `npm run test:rules` — 16 senaryo.
+Kuralların testi (Firebase emülatörü, Java gerekir): `npm run test:rules` — 20 senaryo.
 
 ## Yer ayırtma (WhatsApp)
 

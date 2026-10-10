@@ -279,8 +279,25 @@ p { margin: 0; }
 .back { display: inline-flex; align-items: center; gap: 4px; margin-top: 18px; color: var(--text-2); font-size: 14px; font-weight: 500; }
 .back:hover { color: var(--text); }
 
-.toolbar { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; margin: 22px 0 14px; }
+.toolbar { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; margin: 22px 0 16px; padding: 16px; border: 1px solid var(--line); border-radius: 20px; background: var(--surface); }
 .toolbar-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.toolbar-foot { padding-top: 12px; border-top: 1px solid var(--line); }
+.toolbar-foot .list-count { flex: 1; }
+.select-pill { position: relative; display: inline-flex; align-items: center; gap: 6px; height: 42px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--line-strong); background: var(--surface); color: var(--text-2); font-size: 14px; font-weight: 600; cursor: pointer; }
+.select-pill:hover { border-color: var(--text-3); color: var(--text); }
+.select-pill.on { border-color: var(--accent); color: var(--accent); }
+.select-pill select { appearance: none; border: 0; background: none; color: inherit; font: inherit; padding: 0 2px; cursor: pointer; outline: none; max-width: 220px; }
+.select-pill select option { color: var(--text); background: var(--surface); }
+.select-pill:focus-within { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent); }
+/* Filtreler tek satır, sığmazsa yana kayar (sağ kenarda solma) */
+.filter-row { display: flex; gap: 8px; align-items: center; overflow-x: auto; scrollbar-width: none; margin: 0 -16px; padding: 2px 16px; mask-image: linear-gradient(90deg, transparent 0, #000 16px, #000 calc(100% - 28px), transparent); }
+.filter-row::-webkit-scrollbar { display: none; }
+.filter-row .chip { flex: none; height: 34px; padding: 0 13px; }
+.chip-group { flex: none; display: inline-flex; margin-left: auto; padding: 3px; gap: 2px; border-radius: 999px; background: var(--surface-2); }
+.chip-group button { height: 28px; padding: 0 12px; border: 0; border-radius: 999px; background: none; color: var(--text-2); font-size: 13.5px; font-weight: 600; }
+.chip-group button:hover { color: var(--text); }
+.chip-group button[aria-pressed='true'] { background: var(--surface); color: var(--text); box-shadow: var(--shadow-sm); }
+.clear-btn { display: inline-flex; align-items: center; gap: 4px; }
 .toolbar-label { font-size: 13px; color: var(--text-3); font-weight: 600; min-width: 56px; }
 
 .cafe-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 0.95fr); gap: 20px; align-items: start; padding-bottom: 60px; }
@@ -547,6 +564,8 @@ select.input { appearance: none; background-image: url("data:image/svg+xml,%3Csv
 .admin-table { width: 100%; border-collapse: collapse; font-size: 14px; }
 .admin-table th { text-align: left; font-size: 12px; color: var(--text-3); font-weight: 600; padding: 8px 6px; border-bottom: 1px solid var(--line); }
 .admin-table td { padding: 9px 6px; border-bottom: 1px solid var(--line); }
+.stats-table th:not(:first-child), .stats-table td:not(:first-child) { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.stats-table tfoot td { border-bottom: 0; border-top: 2px solid var(--line-strong); }
 .admin-table code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-weight: 600; letter-spacing: 0.04em; }
 
 /* ---------- Ödeme ---------- */
@@ -632,7 +651,6 @@ select.input { appearance: none; background-image: url("data:image/svg+xml,%3Csv
 .cafe-card.venue .kind-tile { color: var(--text-3); }
 .claim-link { display: inline-block; margin-top: 12px; font-size: 13px; font-weight: 600; color: var(--text-3); }
 .claim-link:hover { color: var(--accent); }
-.chip-sep { width: 1px; align-self: stretch; margin: 6px 2px; background: var(--line-strong); }
 .semt-chips .chip { height: 34px; }
 .marker.guide { width: 32px; height: 32px; color: var(--text-3); }
 .wa-preview { margin: 0 0 14px; padding: 12px 14px; border-radius: 14px 14px 14px 4px; background: color-mix(in srgb, #1f9d55 12%, var(--surface)); font-size: 14px; line-height: 1.45; }

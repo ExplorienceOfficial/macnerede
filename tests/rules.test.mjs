@@ -2,7 +2,7 @@
 //   firebase emulators:exec --only firestore --project demo-macnerede "node tests/rules.test.mjs"
 import { readFileSync } from 'node:fs';
 import { assertFails, assertSucceeds, initializeTestEnvironment } from '@firebase/rules-unit-testing';
-import { Timestamp, addDoc, collection, deleteDoc, doc, getDoc, getDocs, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore';
+import { Timestamp, addDoc, collection, deleteDoc, doc, getDoc, getDocs, increment, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore';
 
 const env = await initializeTestEnvironment({
   projectId: 'demo-macnerede',
@@ -97,6 +97,31 @@ await check('başvuruları sadece yönetici okur ve siler', async () => {
   await assertFails(getDoc(doc(cafe(), 'leads/l1')));
   await assertSucceeds(getDoc(doc(admin(), 'leads/l1')));
   await assertSucceeds(deleteDoc(doc(admin(), 'leads/l1')));
+});
+
+console.log('Analitik:');
+const stat = (action) => ({ venueId: 'v1', date: '2026-10-10', [action]: increment(1) });
+await check('giriş yapmadan sayaç açılır ve 1 artırılır', async () => {
+  await assertSucceeds(setDoc(doc(anon(), 'stats/v1_2026-10-10'), stat('wa'), { merge: true }));
+  await assertSucceeds(setDoc(doc(anon(), 'stats/v1_2026-10-10'), stat('wa'), { merge: true }));
+  await assertSucceeds(setDoc(doc(anon(), 'stats/v1_2026-10-10'), stat('dir'), { merge: true }));
+});
+await check('sayaç birden fazla artırılamaz ya da elle yazılamaz', async () => {
+  await assertFails(setDoc(doc(anon(), 'stats/v1_2026-10-10'), { venueId: 'v1', date: '2026-10-10', wa: 50 }));
+  await seedDoc('stats/v1_2026-10-10', { venueId: 'v1', date: '2026-10-10', wa: 3 });
+  await assertFails(updateDoc(doc(anon(), 'stats/v1_2026-10-10'), { wa: increment(5) }));
+  await assertFails(updateDoc(doc(anon(), 'stats/v1_2026-10-10'), { wa: 0 }));
+  await assertFails(updateDoc(doc(anon(), 'stats/v1_2026-10-10'), { wa: increment(1), call: increment(1) }));
+});
+await check('belge adı mekan_tarih olmalı, fazladan alan yok', async () => {
+  await assertFails(setDoc(doc(anon(), 'stats/baska'), stat('wa'), { merge: true }));
+  await assertFails(setDoc(doc(anon(), 'stats/v1_2026-10-10'), { ...stat('wa'), ip: '1.2.3.4' }, { merge: true }));
+});
+await check('sayaçları sadece yönetici okur', async () => {
+  await seedDoc('stats/v1_2026-10-10', { venueId: 'v1', date: '2026-10-10', wa: 3 });
+  await assertFails(getDoc(doc(anon(), 'stats/v1_2026-10-10')));
+  await assertFails(getDocs(collection(cafe(), 'stats')));
+  await assertSucceeds(getDocs(collection(admin(), 'stats')));
 });
 
 await env.cleanup();

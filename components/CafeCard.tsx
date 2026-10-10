@@ -6,6 +6,7 @@ import { BadgeCheck, Info, MessageCircle, Navigation, Phone, Star, Trees, Tv, Vo
 import { FanBadge, KindIcon } from './bits';
 import { HookahIcon, PintIcon } from './art';
 import { directionsLink, formatPhone, telLink, tl } from '@/lib/hooks';
+import { track } from '@/lib/db';
 import { districtName } from '@/lib/places';
 import { hasWhatsApp } from '@/lib/venues';
 import type { Broadcast, Cafe } from '@/lib/types';
@@ -121,19 +122,19 @@ export default function CafeCard({ cafe, b, index, active, onSeat, onFocus }: Pr
             <MessageCircle size={16} /> Yerini ayırt
           </motion.button>
         ) : (
-          <a className="btn btn-primary" href={telLink(cafe.phone)}>
+          <a className="btn btn-primary" href={telLink(cafe.phone)} onClick={() => track(cafe.id, 'call')}>
             <Phone size={16} /> Arayıp yer ayırt
           </a>
         )}
         {wa && (
-          <a className="btn btn-soft" href={telLink(cafe.phone)} title={formatPhone(cafe.phone)}>
+          <a className="btn btn-soft" href={telLink(cafe.phone)} onClick={() => track(cafe.id, 'call')} title={formatPhone(cafe.phone)}>
             <Phone size={15} /> Ara
           </a>
         )}
         <button className="btn btn-ghost" onClick={() => onFocus(cafe.id)}>
           Haritada
         </button>
-        <a className="btn btn-ghost" href={directionsLink(cafe.lat, cafe.lng)} target="_blank" rel="noopener noreferrer">
+        <a className="btn btn-ghost" href={directionsLink(cafe.lat, cafe.lng)} onClick={() => track(cafe.id, 'dir')} target="_blank" rel="noopener noreferrer">
           <Navigation size={15} /> Yol tarifi
         </a>
         <Link className="btn btn-ghost" href={`/kafe/${cafe.id}`}>

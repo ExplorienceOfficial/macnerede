@@ -47,11 +47,11 @@ export const isLive = (m: Match, now = new Date()) => {
   return !!m.time && now.getTime() >= k && now.getTime() < k + MATCH_LENGTH_MS;
 };
 
-function ymdIstanbul(d: Date) {
+export function ymdIstanbul(d: Date) {
   return new Intl.DateTimeFormat('en-CA', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit' }).format(d);
 }
 
-function addDays(ymd: string, n: number) {
+export function addDays(ymd: string, n: number) {
   const d = new Date(`${ymd}T12:00:00+03:00`);
   d.setUTCDate(d.getUTCDate() + n);
   return ymdIstanbul(d);

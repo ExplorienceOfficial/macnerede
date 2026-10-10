@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { AnimatePresence, LayoutGroup, motion } from 'motion/react';
 import { useMemo, useState } from 'react';
-import { ArrowRight, ChevronLeft, List, Map as MapIcon } from 'lucide-react';
+import { ArrowRight, Check, ChevronDown, ChevronLeft, List, Map as MapIcon, MapPin, X } from 'lucide-react';
 import Crest from './Crest';
 import Countdown from './Countdown';
 import CafeCard from './CafeCard';
@@ -86,7 +86,8 @@ export default function MatchView({ match, city: initialCity, initialDistrict, n
   const districts = useMemo(() => {
     const counts = new Map<string, number>();
     inCity.forEach((r) => counts.set(place(r).district, (counts.get(place(r).district) ?? 0) + 1));
-    return cityInfo.districts.filter((d) => counts.has(d.id)).map((d) => ({ ...d, n: counts.get(d.id)! }));
+    // En kalabalık semt üstte
+    return cityInfo.districts.filter((d) => counts.has(d.id)).map((d) => ({ ...d, n: counts.get(d.id)! })).sort((a, b) => b.n - a.n);
   }, [inCity, cityInfo]);
 
   const partnerOnlyActive = PARTNER_ONLY.some((f) => filters.has(f)) || [...filters].some((f) => f.startsWith('fan-')) || budget !== null;
@@ -121,6 +122,12 @@ export default function MatchView({ match, city: initialCity, initialDistrict, n
   }, [inCity, district, filters, budget, fanTeams, partnerOnlyActive]);
 
   const partnerCount = rows.filter((r) => r.type === 'cafe').length;
+
+  function clearFilters() {
+    setFilters(new Set());
+    setBudget(null);
+    setDistrict('all');
+  }
 
   function toggle(f: FilterId) {
     setFilters((prev) => {
@@ -209,33 +216,37 @@ export default function MatchView({ match, city: initialCity, initialDistrict, n
       <div className="toolbar">
         <div className="toolbar-row">
           <CityPicker value={city} onChange={setCity} counts={loading ? undefined : cityCounts} />
+          {districts.length > 0 && (
+            <label className={`select-pill${district !== 'all' ? ' on' : ''}`}>
+              <MapPin size={15} />
+              <select value={district} onChange={(e) => setDistrict(e.target.value)} aria-label="Semt">
+                <option value="all">Tüm semtler ({inCity.length})</option>
+                {districts.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.name} ({d.n})
+                  </option>
+                ))}
+              </select>
+              <ChevronDown size={15} />
+            </label>
+          )}
         </div>
-        {districts.length > 0 && (
-          <div className="toolbar-row chips" role="group" aria-label="Semt">
-            <button className="chip" aria-pressed={district === 'all'} onClick={() => setDistrict('all')}>
-              Tüm {cityInfo.name}
-            </button>
-            {districts.map((d) => (
-              <button key={d.id} className="chip" aria-pressed={district === d.id} onClick={() => setDistrict(district === d.id ? 'all' : d.id)}>
-                {d.name} <span className="faint">{d.n}</span>
-              </button>
-            ))}
-          </div>
-        )}
-        <div className="toolbar-row chips">
+        <div className="filter-row" role="group" aria-label="Filtreler">
           {filterDefs.map((f) => (
             <motion.button key={f.id} className="chip" aria-pressed={filters.has(f.id)} onClick={() => toggle(f.id)} whileTap={{ scale: 0.94 }}>
+              {filters.has(f.id) && <Check size={14} />}
               {f.label}
             </motion.button>
           ))}
-          <span className="chip-sep" aria-hidden />
-          {([1, 2, 3] as const).map((lvl) => (
-            <motion.button key={lvl} className="chip" aria-pressed={budget === lvl} onClick={() => setBudget(budget === lvl ? null : lvl)} whileTap={{ scale: 0.94 }} title={['Uygun', 'Orta', 'Pahalı'][lvl - 1]}>
-              {'₺'.repeat(lvl)}
-            </motion.button>
-          ))}
+          <div className="chip-group" role="group" aria-label="Bütçe">
+            {([1, 2, 3] as const).map((lvl) => (
+              <button key={lvl} aria-pressed={budget === lvl} onClick={() => setBudget(budget === lvl ? null : lvl)} title={['Uygun', 'Orta', 'Pahalı'][lvl - 1]}>
+                {'₺'.repeat(lvl)}
+              </button>
+            ))}
+          </div>
         </div>
-        <div className="toolbar-row" style={{ justifyContent: 'space-between' }}>
+        <div className="toolbar-row toolbar-foot">
           <p className="list-count">
             {loading ? (
               'Mekanlar yükleniyor…'
@@ -246,6 +257,11 @@ export default function MatchView({ match, city: initialCity, initialDistrict, n
               </>
             )}
           </p>
+          {filtered && (
+            <button className="link-btn clear-btn" onClick={clearFilters}>
+              <X size={14} /> Temizle
+            </button>
+          )}
           <div className="seg view-toggle">
             {(['list', 'map'] as const).map((v) => (
               <button key={v} aria-pressed={view === v} onClick={() => setView(v)}>

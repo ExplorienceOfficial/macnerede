@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { AnimatePresence, motion } from 'motion/react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { BookOpen, CalendarDays, Check, CreditCard, Copy, Eye, EyeOff, ExternalLink, FileUp, Inbox, KeyRound, LogOut, MessageCircle, RefreshCw, Search, ShieldCheck, Store, Trash2, UploadCloud, UserPlus } from 'lucide-react';
+import { BarChart3, BookOpen, CalendarDays, Download, Check, CreditCard, Copy, Eye, EyeOff, ExternalLink, FileUp, Inbox, KeyRound, LogOut, MessageCircle, RefreshCw, Search, ShieldCheck, Store, Trash2, UploadCloud, UserPlus } from 'lucide-react';
 import Crest from './Crest';
 import LocationPicker, { type LatLng } from './LocationPicker';
 import { CompBadge, KindIcon } from './bits';
@@ -18,6 +18,7 @@ import {
   adminListCodes,
   adminListLeads,
   adminListPayments,
+  adminListStats,
   adminListVenues,
   adminSetMembership,
   adminSetVenueHidden,
@@ -29,18 +30,22 @@ import {
   prepareGoogle,
   watchAdmin,
   type AdminSession,
+  type StatAction,
+  type StatDay,
   type MembershipPreset,
 } from '@/lib/db';
 import { DEFAULT_CITY, cities, cityById, districtById, districtName } from '@/lib/places';
 import { BIG4, team, type BigTeam } from '@/lib/teams';
 import { CAFE_KINDS, plans, type Payment, type ActivationCode, type Broadcast, type Cafe, type CafeKind, type Lead, type PlanId, type Venue } from '@/lib/types';
-import { matchPath, type MatchInfo } from '@/lib/fixtures';
+import { addDays, matchPath, ymdIstanbul, type MatchInfo } from '@/lib/fixtures';
 import { formatPhone, tl, waLink } from '@/lib/hooks';
 import { bundledVenues } from '@/lib/venues';
+import { downloadXlsx, type Cell } from '@/lib/xlsx';
 
-type Tab = 'hafta' | 'mekanlar' | 'basvurular' | 'rehber' | 'yeni' | 'odemeler' | 'kodlar';
+type Tab = 'hafta' | 'analitik' | 'mekanlar' | 'basvurular' | 'rehber' | 'yeni' | 'odemeler' | 'kodlar';
 const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
   { id: 'hafta', label: 'Bu hafta', icon: <CalendarDays size={15} /> },
+  { id: 'analitik', label: 'Analitik', icon: <BarChart3 size={15} /> },
   { id: 'mekanlar', label: 'Mekanlar', icon: <Store size={15} /> },
   { id: 'basvurular', label: 'Başvurular', icon: <Inbox size={15} /> },
   { id: 'rehber', label: 'Rehber', icon: <BookOpen size={15} /> },
@@ -142,6 +147,7 @@ export default function AdminView({ matches, weekText }: { matches: MatchInfo[];
       <AnimatePresence mode="wait">
         <motion.div key={tab} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.2 }}>
           {tab === 'hafta' && <WeekTab matches={matches} weekText={weekText} cafes={cafes} />}
+          {tab === 'analitik' && <StatsTab cafes={cafes} />}
           {tab === 'mekanlar' && <CafesTab cafes={cafes} onChange={(c) => setCafes((all) => (all ?? []).map((x) => (x.id === c.id ? c : x)))} onReload={loadCafes} />}
           {tab === 'basvurular' && <LeadsTab />}
           {tab === 'rehber' && <VenuesTab />}
@@ -1005,6 +1011,161 @@ function LeadsTab() {
           </button>
         </div>
       ))}
+    </section>
+  );
+}
+
+// ---------------- Analitik ----------------
+const STAT_COLS: { id: StatAction; label: string }[] = [
+  { id: 'seat', label: 'Yerini ayırt' },
+  { id: 'wa', label: 'WhatsApp' },
+  { id: 'call', label: 'Arama' },
+  { id: 'dir', label: 'Yol tarifi' },
+  { id: 'view', label: 'Mekan sayfası' },
+];
+const RANGES = [
+  { id: 7, label: 'Son 7 gün' },
+  { id: 30, label: 'Son 30 gün' },
+  { id: 0, label: 'Tümü' },
+] as const;
+const statTotal = (s: Record<StatAction, number>) => STAT_COLS.reduce((n, c) => n + s[c.id], 0);
+
+/** Taraftarın mekanlar için yaptığı işlemler (anonim, günlük sayaç) + Excel dökümü */
+function StatsTab({ cafes }: { cafes: Cafe[] | null }) {
+  const [range, setRange] = useState<number>(30);
+  const [days, setDays] = useState<StatDay[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const today = ymdIstanbul(new Date());
+  const from = range ? addDays(today, -(range - 1)) : null;
+  useEffect(() => {
+    setDays(null);
+    setError(null);
+    adminListStats(from)
+      .then(setDays)
+      .catch((e) => setError(friendly(e)));
+  }, [from]);
+
+  // Mekan bilgisi: anlaşmalılar Firebase'den, rehber paketten
+  const info = useMemo(() => {
+    const m = new Map<string, { name: string; type: string; city: string; district: string; phone: string }>();
+    for (const v of bundledVenues) m.set(v.id, { name: v.name, type: 'Rehber', city: v.city, district: v.district, phone: v.phone ?? '' });
+    for (const c of cafes ?? []) m.set(c.id, { name: c.name, type: c.plan === 'pro' ? 'Anlaşmalı (Pro)' : 'Anlaşmalı', city: c.city, district: c.district, phone: c.phone });
+    return m;
+  }, [cafes]);
+  const describe = (id: string) => info.get(id) ?? { name: `(bilinmeyen mekan) ${id}`, type: '?', city: '', district: '', phone: '' };
+
+  const totals = useMemo(() => {
+    const m = new Map<string, Record<StatAction, number> & { first: string; last: string }>();
+    for (const d of days ?? []) {
+      const t = m.get(d.venueId) ?? { seat: 0, wa: 0, call: 0, dir: 0, view: 0, first: d.date, last: d.date };
+      for (const c of STAT_COLS) t[c.id] += d[c.id];
+      if (d.date < t.first) t.first = d.date;
+      if (d.date > t.last) t.last = d.date;
+      m.set(d.venueId, t);
+    }
+    return [...m.entries()].map(([id, t]) => ({ id, ...t, total: statTotal(t) })).sort((a, b) => b.total - a.total);
+  }, [days]);
+  const sum = STAT_COLS.map((c) => totals.reduce((n, t) => n + t[c.id], 0));
+
+  function exportXlsx() {
+    const where = (id: string): Cell[] => {
+      const v = describe(id);
+      return [v.name, v.type, cityById(v.city)?.name ?? v.city, v.city ? districtName(v.city, v.district) : '', v.phone ? formatPhone(v.phone) : ''];
+    };
+    const head = ['Mekan', 'Tür', 'Şehir', 'Semt', 'Telefon'];
+    const summary: Cell[][] = [
+      [...head, ...STAT_COLS.map((c) => c.label), 'Toplam', 'İlk gün', 'Son gün'],
+      ...totals.map((t) => [...where(t.id), ...STAT_COLS.map((c) => t[c.id]), t.total, t.first, t.last]),
+    ];
+    const daily: Cell[][] = [
+      ['Tarih', ...head, ...STAT_COLS.map((c) => c.label), 'Toplam'],
+      ...[...(days ?? [])]
+        .sort((a, b) => b.date.localeCompare(a.date) || statTotal(b) - statTotal(a))
+        .map((d) => [d.date, ...where(d.venueId), ...STAT_COLS.map((c) => d[c.id]), statTotal(d)]),
+    ];
+    const widths = [34, 16, 10, 22, 16, ...STAT_COLS.map(() => 13), 9];
+    downloadXlsx(`neredemac-analitik-${from ?? 'tumu'}_${today}.xlsx`, [
+      { name: 'Mekanlar', rows: summary, widths: [...widths, 12, 12] },
+      { name: 'Günlük', rows: daily, widths: [12, ...widths] },
+    ]);
+  }
+
+  return (
+    <section className="card panel-card">
+      <h2>Analitik</h2>
+      <p>
+        Taraftarların sitede mekanlar için yaptığı işlemler. Kişisel veri tutulmaz; aynı kişinin aynı gün aynı tıklaması bir kez sayılır. Mekana
+        fiziksel olarak kaç kişinin gittiğini değil, ilgiyi gösterir.
+      </p>
+      <div className="admin-toolbar" style={{ marginBottom: 14 }}>
+        <div className="seg" role="group" aria-label="Tarih aralığı">
+          {RANGES.map((r) => (
+            <button key={r.id} aria-pressed={range === r.id} onClick={() => setRange(r.id)}>
+              {range === r.id && <motion.span layoutId="stat-range" className="seg-thumb" />}
+              {r.label}
+            </button>
+          ))}
+        </div>
+        <button className="btn btn-primary btn-sm" onClick={exportXlsx} disabled={!days || days.length === 0} style={{ marginLeft: 'auto' }}>
+          <Download size={15} /> Excel indir
+        </button>
+      </div>
+      {error && <div className="form-error">{error}</div>}
+      {days === null && !error && <div className="skeleton" style={{ height: 160 }} />}
+      {days?.length === 0 && <p className="faint">Bu aralıkta henüz tıklama yok.</p>}
+      {totals.length > 0 && (
+        <div style={{ overflowX: 'auto' }}>
+          <table className="admin-table stats-table">
+            <thead>
+              <tr>
+                <th>Mekan</th>
+                {STAT_COLS.map((c) => (
+                  <th key={c.id}>{c.label}</th>
+                ))}
+                <th>Toplam</th>
+              </tr>
+            </thead>
+            <tbody>
+              {totals.map((t) => {
+                const v = describe(t.id);
+                return (
+                  <tr key={t.id}>
+                    <td>
+                      <b>{v.name}</b>
+                      <div className="faint" style={{ fontSize: 12.5 }}>
+                        {v.type}
+                        {v.city && ` · ${cityById(v.city)?.name} / ${districtName(v.city, v.district)}`}
+                      </div>
+                    </td>
+                    {STAT_COLS.map((c) => (
+                      <td key={c.id}>{t[c.id] || <span className="faint">0</span>}</td>
+                    ))}
+                    <td>
+                      <b>{t.total}</b>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+            <tfoot>
+              <tr>
+                <td>
+                  <b>{totals.length} mekan</b>
+                </td>
+                {sum.map((n, i) => (
+                  <td key={STAT_COLS[i].id}>
+                    <b>{n}</b>
+                  </td>
+                ))}
+                <td>
+                  <b>{sum.reduce((a, b) => a + b, 0)}</b>
+                </td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      )}
     </section>
   );
 }

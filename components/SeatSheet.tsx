@@ -5,11 +5,14 @@ import { useEffect, useState } from 'react';
 import { MessageCircle, Minus, Phone, Plus, X } from 'lucide-react';
 import Crest from './Crest';
 import { formatPhone, seatMessage, telLink, waLink } from '@/lib/hooks';
+import { track } from '@/lib/db';
 import { districtName } from '@/lib/places';
 import { team } from '@/lib/teams';
 import type { MatchInfo } from '@/lib/fixtures';
 
 export interface SeatPlace {
+  /** Analitik için mekan id'si (anlaşmalı: uid, rehber: rehber id'si) */
+  id: string;
   name: string;
   phone: string;
   city: string;
@@ -28,6 +31,9 @@ export default function SeatSheet({ place, match, onClose }: { place: SeatPlace;
   const [dir, setDir] = useState(1);
   const started = Date.now() >= new Date(match.kickoffISO).getTime();
   const message = seatMessage(match, people);
+
+  // "Yerini ayırt" penceresi açıldı: mekana ilgi
+  useEffect(() => track(place.id, 'seat'), [place.id]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
@@ -102,10 +108,10 @@ export default function SeatSheet({ place, match, onClose }: { place: SeatPlace;
 
         <p className="wa-preview">{message}</p>
 
-        <a className="btn btn-wa btn-lg btn-block" href={waLink(place.phone, message)} target="_blank" rel="noopener noreferrer">
+        <a className="btn btn-wa btn-lg btn-block" href={waLink(place.phone, message)} onClick={() => track(place.id, 'wa')} target="_blank" rel="noopener noreferrer">
           <MessageCircle size={18} /> WhatsApp’tan yer sor
         </a>
-        <a className="btn btn-ghost btn-lg btn-block" style={{ marginTop: 8 }} href={telLink(place.phone)}>
+        <a className="btn btn-ghost btn-lg btn-block" style={{ marginTop: 8 }} href={telLink(place.phone)} onClick={() => track(place.id, 'call')}>
           <Phone size={17} /> Ara · {formatPhone(place.phone)}
         </a>
         <p className="legal">Yer ayırma mekanla aranda kalır; giriş ücreti, harcama şartı gibi detayları mekana sor.</p>

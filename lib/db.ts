@@ -6,6 +6,7 @@ import {
   doc,
   getDoc,
   getDocs,
+  increment,
   limit,
   query,
   where,
@@ -24,6 +25,7 @@ import { GoogleAuthProvider, createUserWithEmailAndPassword, onAuthStateChanged,
 import { creatorAuth, firebase, firebaseEnabled } from './firebase';
 import { demoBroadcasts, demoCafes } from './demo-seed';
 import { bundledVenues } from './venues';
+import { ymdIstanbul } from './fixtures';
 import { CODE_PATTERN, MAX_PHOTOS, PERIODS, TRIAL_DAYS, periodPrice, type ActivationCode, type Broadcast, type Cafe, type CafePhoto, type Lead, type Payment, type PeriodId, type PlanId, type Venue } from './types';
 
 /** Aktivasyon kodlarının varsayılan süresi (yönetim sayfası da bunu kullanır) */
@@ -57,7 +59,7 @@ function cafeFromDoc(d: DocumentSnapshot): Cafe {
 }
 
 // ---------------- demo depolama ----------------
-const K = { cafes: 'mn.cafes', bc: 'mn.broadcasts', acc: 'mn.accounts', session: 'mn.session', codes: 'mn.codes', photos: 'mn.photos', adminCodes: 'mn.adminCodes', payments: 'mn.payments', leads: 'mn.leads', hiddenVenues: 'mn.hiddenVenues' };
+const K = { cafes: 'mn.cafes', bc: 'mn.broadcasts', acc: 'mn.accounts', session: 'mn.session', codes: 'mn.codes', photos: 'mn.photos', adminCodes: 'mn.adminCodes', payments: 'mn.payments', leads: 'mn.leads', hiddenVenues: 'mn.hiddenVenues', stats: 'mn.stats' };
 const SESSION_EVENT = 'mn-session';
 
 function lsGet<T>(key: string, fallback: T): T {
@@ -202,6 +204,43 @@ export async function adminSetVenueHidden(id: string, hidden: boolean) {
     return;
   }
   await updateDoc(doc(firebase().db, 'venues', id), { hidden });
+}
+
+// ---------------- analitik: mekan başına günlük tıklama sayaçları ----------------
+/** seat: "Yerini ayırt" açıldı · wa: WhatsApp'a geçti · call: aradı · dir: yol tarifi · view: mekan sayfası */
+export type StatAction = 'seat' | 'wa' | 'call' | 'dir' | 'view';
+export const STAT_ACTIONS: StatAction[] = ['seat', 'wa', 'call', 'dir', 'view'];
+export type StatDay = { venueId: string; date: string } & Record<StatAction, number>;
+
+/**
+ * Taraftarın mekan için yaptığı işlemi sayar (kişisel veri yok). Aynı tarayıcı oturumunda aynı mekan + işlem
+ * günde bir kez sayılır; tekrar tıklamalar sayıyı şişirmesin. Hata olursa sessizce geçer, kullanıcıyı durdurmaz.
+ */
+export function track(venueId: string, action: StatAction) {
+  const date = ymdIstanbul(new Date());
+  try {
+    const key = `mn.t.${date}.${venueId}.${action}`;
+    if (sessionStorage.getItem(key)) return;
+    sessionStorage.setItem(key, '1');
+  } catch {}
+  const id = `${venueId}_${date}`;
+  if (demoMode) {
+    const all = lsGet<Record<string, StatDay>>(K.stats, {});
+    const cur = all[id] ?? ({ venueId, date, seat: 0, wa: 0, call: 0, dir: 0, view: 0 } as StatDay);
+    all[id] = { ...cur, [action]: cur[action] + 1 };
+    lsSet(K.stats, all);
+    return;
+  }
+  setDoc(doc(firebase().db, 'stats', id), { venueId, date, [action]: increment(1) }, { merge: true }).catch((e) => console.warn('[analitik]', e));
+}
+
+/** Yönetici: `from` tarihinden (YYYY-MM-DD, dahil) bugüne günlük sayaçlar; null = hepsi */
+export async function adminListStats(from: string | null): Promise<StatDay[]> {
+  const fill = (d: Partial<StatDay>): StatDay => ({ venueId: '', date: '', seat: 0, wa: 0, call: 0, dir: 0, view: 0, ...d });
+  if (demoMode) return Object.values(lsGet<Record<string, StatDay>>(K.stats, {})).filter((s) => !from || s.date >= from).map(fill);
+  const col = collection(firebase().db, 'stats');
+  const snap = await getDocs(from ? query(col, where('date', '>=', from)) : col);
+  return snap.docs.map((d) => fill(d.data() as Partial<StatDay>));
 }
 
 // ---------------- başvurular (kısa kayıt formu) ----------------

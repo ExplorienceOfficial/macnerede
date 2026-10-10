@@ -6,6 +6,7 @@ import { ExternalLink, Info, MessageCircle, Navigation, Phone, Star, Trees, Tv }
 import { KindIcon } from './bits';
 import { HookahIcon, PintIcon } from './art';
 import { directionsLink, telLink } from '@/lib/hooks';
+import { track } from '@/lib/db';
 import { districtName } from '@/lib/places';
 import { hasWhatsApp } from '@/lib/venues';
 import type { Venue } from '@/lib/types';
@@ -85,20 +86,20 @@ export default function VenueCard({ v, index, active, onSeat, onFocus }: Props) 
           </motion.button>
         ) : (
           v.phone && (
-            <a className="btn btn-primary" href={telLink(v.phone)}>
+            <a className="btn btn-primary" href={telLink(v.phone)} onClick={() => track(v.id, 'call')}>
               <Phone size={16} /> Arayıp sor
             </a>
           )
         )}
         {wa && (
-          <a className="btn btn-soft" href={telLink(v.phone)}>
+          <a className="btn btn-soft" href={telLink(v.phone)} onClick={() => track(v.id, 'call')}>
             <Phone size={15} /> Ara
           </a>
         )}
         <button className="btn btn-ghost" onClick={() => onFocus(v.id)}>
           Haritada
         </button>
-        <a className="btn btn-ghost" href={directionsLink(v.lat, v.lng)} target="_blank" rel="noopener noreferrer">
+        <a className="btn btn-ghost" href={directionsLink(v.lat, v.lng)} onClick={() => track(v.id, 'dir')} target="_blank" rel="noopener noreferrer">
           <Navigation size={15} /> Yol tarifi
         </a>
         {v.instagram && (

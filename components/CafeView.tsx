@@ -9,7 +9,7 @@ import CafeMap from './CafeMap';
 import SeatSheet from './SeatSheet';
 import { FanBadge, KindIcon } from './bits';
 import { TvIllustration } from './art';
-import { getCafe, listCafeBroadcasts, listPhotos } from '@/lib/db';
+import { getCafe, listCafeBroadcasts, listPhotos, track } from '@/lib/db';
 import { directionsLink, formatPhone, telLink, tl } from '@/lib/hooks';
 import { hasWhatsApp } from '@/lib/venues';
 import { cityById, districtName } from '@/lib/places';
@@ -28,6 +28,7 @@ export default function CafeView({ id, matches }: { id: string; matches: MatchIn
     Promise.all([getCafe(id), listCafeBroadcasts(id)]).then(([c, b]) => {
       setCafe(c);
       setBcs(b);
+      if (c) track(c.id, 'view');
     });
     listPhotos(id).then(setPhotos).catch(() => setPhotos([]));
   }, [id]);
@@ -84,7 +85,7 @@ export default function CafeView({ id, matches }: { id: string; matches: MatchIn
           </div>
           <dl className="spec-list">
             <div><dt>Adres</dt><dd>{cafe.address}</dd></div>
-            <div><dt>Telefon</dt><dd><a href={telLink(cafe.phone)} style={{ color: 'var(--accent)' }}>{formatPhone(cafe.phone)}</a></dd></div>
+            <div><dt>Telefon</dt><dd><a href={telLink(cafe.phone)} onClick={() => track(cafe.id, 'call')} style={{ color: 'var(--accent)' }}>{formatPhone(cafe.phone)}</a></dd></div>
             <div><dt>Ekranlar</dt><dd>{cafe.screens}</dd></div>
             <div><dt>Kapasite</dt><dd>{cafe.capacity} kişi</dd></div>
             <div><dt>Kişi başı</dt><dd>{cafe.priceMin}–{cafe.priceMax} TL</dd></div>
@@ -98,10 +99,10 @@ export default function CafeView({ id, matches }: { id: string; matches: MatchIn
             </div>
           </dl>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 16 }}>
-            <a className="btn btn-primary" href={telLink(cafe.phone)}>
+            <a className="btn btn-primary" href={telLink(cafe.phone)} onClick={() => track(cafe.id, 'call')}>
               <Phone size={15} /> Mekanı ara
             </a>
-            <a className="btn btn-ghost" href={directionsLink(cafe.lat, cafe.lng)} target="_blank" rel="noopener noreferrer">
+            <a className="btn btn-ghost" href={directionsLink(cafe.lat, cafe.lng)} onClick={() => track(cafe.id, 'dir')} target="_blank" rel="noopener noreferrer">
               <Navigation size={15} /> Yol tarifi al
             </a>
           </div>
@@ -150,7 +151,7 @@ export default function CafeView({ id, matches }: { id: string; matches: MatchIn
                         <MessageCircle size={15} /> Yer sor
                       </button>
                     ) : (
-                      <a className="btn btn-primary btn-sm" href={telLink(cafe.phone)}>
+                      <a className="btn btn-primary btn-sm" href={telLink(cafe.phone)} onClick={() => track(cafe.id, 'call')}>
                         <Phone size={15} /> Ara
                       </a>
                     )}
