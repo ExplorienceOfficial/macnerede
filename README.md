@@ -13,9 +13,10 @@ npm install
 npm run dev
 ```
 
-Firebase ayarları depodaki `.env` dosyasında (web ayarları gizli değildir; güvenliği `firestore.rules` sağlar), yani
-klonlayıp çalıştırınca site doğrudan `macnerede-58592` projesine bağlanır. Firebase değişkenleri boş bırakılırsa site
-**demo modunda** çalışır: örnek anlaşmalı mekanlar, kayıtlar ve başvurular tarayıcıda saklanır.
+Ortam değişkenleri depoda **yok**: `.env.local.example`'ı `.env.local` (ya da `.env`) olarak kopyalayıp doldur. Canlıda aynı
+değişkenler Vercel → Project → Settings → Environment Variables'ta durur. `NEXT_PUBLIC_FIREBASE_*` eksikse canlı derleme bilerek
+durur (`next.config.mjs`), Vercel önceki sürümü yayında tutar; site hiçbir zaman sahte demo verisiyle yayına çıkmaz. Yerelde Firebase
+değişkenleri boş bırakılırsa site **demo modunda** çalışır: örnek anlaşmalı mekanlar, kayıtlar ve başvurular tarayıcıda saklanır.
 
 ## Sayfalar
 
@@ -37,7 +38,7 @@ Rehber mekanında `evidenceDate` (maç izlendiğini yazan en yeni Google yorumun
 ve site haritasından kendiliğinden düşer. Yönetim → Rehber'de "Yeniden doğrula" ile yeni tarih girilince geri gelir; yeni mekan
 kanıt tarihi olmadan kaydedilemez. Doğrulama: Google Maps'te mekanın yorumlarında "maç" diye arat, en yeni yorumun tarihine bak.
 
-"Bu işletmenin sahibi misiniz?" butonu `.env`'deki `NEXT_PUBLIC_CONTACT_WHATSAPP` hattına hazır mesajla yazar (boşsa başvuru formu).
+"Bu işletmenin sahibi misiniz?" butonu `merhaba@neredemac.com`'a hazır konulu e-posta açar (`lib/site.ts`).
 Öne çıkarma (ücretli): Yönetim → Rehber/Mekanlar → "Öne çıkar", son gün seçilir; o güne kadar şehrin listesinde en üstte, "Öne çıkan" etiketiyle.
 
 ## Fikstür

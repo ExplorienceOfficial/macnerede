@@ -10,10 +10,11 @@ import { createLead } from '@/lib/db';
 import { DEFAULT_CITY, cities, cityById } from '@/lib/places';
 import { bundledVenues } from '@/lib/venues';
 import { formatPhone } from '@/lib/hooks';
+import { PAYMENTS_ENABLED } from '@/lib/site';
 
 /**
  * "Mekanını ekle": önce 3 alanlık kısa başvuru (ad, semt, WhatsApp) — profili biz hazırlarız.
- * Beklemek istemeyen mekan 5 adımlı formla profilini kendisi kurar.
+ * Beklemek istemeyen mekan adım adım formla profilini kendisi kurar.
  * ?mekan=<rehber id> ile gelinirse rehberdeki mekanın bilgileri hazır gelir.
  */
 export default function JoinView({ weekMatchCount, venueId }: { weekMatchCount: number; venueId?: string }) {
@@ -136,7 +137,7 @@ export default function JoinView({ weekMatchCount, venueId }: { weekMatchCount: 
             </p>
             <div className="join-alt">
               <button type="button" className="link-btn" onClick={() => setMode('full')}>
-                Beklemeden profilimi kendim kurayım (5 adım)
+                Beklemeden profilimi kendim kurayım ({PAYMENTS_ENABLED ? 5 : 4} adım)
               </button>
               <Link href="/giris" className="link-btn">
                 Zaten üyeyim

@@ -17,8 +17,10 @@ import { scenes } from '@/lib/scenes';
 import { DEFAULT_CITY, cities, cityById, districtById, districtName } from '@/lib/places';
 import { BIG4, team, type BigTeam } from '@/lib/teams';
 import { CAFE_KINDS, plans, TRIAL_DAYS, type Cafe, type CafeKind, type PlanId } from '@/lib/types';
+import { PAYMENTS_ENABLED } from '@/lib/site';
 
-const STEPS = ['Hesap', 'Mekan', 'Konum', 'Ortam', 'Üyelik'] as const;
+// Ödeme kapalıyken "Üyelik" (plan, fiyat, deneme) adımı yok: 4 adımda profil yayına çıkar
+const STEPS = PAYMENTS_ENABLED ? ['Hesap', 'Mekan', 'Konum', 'Ortam', 'Üyelik'] : ['Hesap', 'Mekan', 'Konum', 'Ortam'];
 
 type CodeState =
   | { status: 'idle' }
@@ -230,8 +232,8 @@ export default function RegisterFlow({ weekMatchCount, prefill }: { weekMatchCou
             <span>maç bu hafta</span>
           </div>
           <div className="stat">
-            <b>{TRIAL_DAYS} gün</b>
-            <span>ücretsiz deneme</span>
+            <b>{PAYMENTS_ENABLED ? `${TRIAL_DAYS} gün` : 'Ücretsiz'}</b>
+            <span>{PAYMENTS_ENABLED ? 'ücretsiz deneme' : 'şimdilik ücret yok'}</span>
           </div>
         </div>
         <div className="pick-label" style={{ marginTop: 22 }}>Taraftar seni böyle görecek</div>
@@ -272,7 +274,7 @@ export default function RegisterFlow({ weekMatchCount, prefill }: { weekMatchCou
             {step === 0 && (
               <>
                 <h2 className="step-title">Önce hesabını açalım</h2>
-                <p className="step-desc">Mekan paneline bu hesapla gireceksin. Toplam 5 kısa adım, 3 dakika sürer.</p>
+                <p className="step-desc">Mekan paneline bu hesapla gireceksin. Toplam {STEPS.length} kısa adım, 3 dakika sürer.</p>
                 {google ? (
                   <div className="trial-note" style={{ marginTop: 0 }}>
                     <Check size={18} style={{ flex: 'none', marginTop: 2 }} />
@@ -574,7 +576,7 @@ export default function RegisterFlow({ weekMatchCount, prefill }: { weekMatchCou
             </button>
           ) : (
             <button className="btn btn-primary" onClick={finish} disabled={busy}>
-              {busy ? 'Kaydediliyor…' : codeState.status === 'ok' ? 'Ücretsiz üyeliği başlat' : `${TRIAL_DAYS} günlük denemeyi başlat`}
+              {busy ? 'Kaydediliyor…' : !PAYMENTS_ENABLED ? 'Profilimi yayına al' : codeState.status === 'ok' ? 'Ücretsiz üyeliği başlat' : `${TRIAL_DAYS} günlük denemeyi başlat`}
             </button>
           )}
         </div>
@@ -691,12 +693,14 @@ function Welcome({ cafe }: { cafe: Cafe }) {
             <PitchLines className="pitch" />
             <motion.span className="shine" initial={{ left: '-50%' }} animate={{ left: '160%' }} transition={{ duration: 1.1, delay: 1.3, ease: 'easeInOut' }} />
             <div className="mc-row">
-              <span className="mc-label">MAÇNEREDE · ANLAŞMALI MEKAN</span>
+              <span className="mc-label">NEREDEMAÇ · ANLAŞMALI MEKAN</span>
               {cafe.fanOf ? <Crest id={cafe.fanOf} size={30} /> : <LogoMark size={28} />}
             </div>
             <div className="mc-name">{cafe.name}</div>
             <div className="mc-sub">
-              {plans[cafe.plan].name} üyelik · {cafe.activationCode ? `Ücretsiz, ${renews} tarihine kadar` : `Deneme ${renews}’e kadar`}
+              {!PAYMENTS_ENABLED
+                ? 'Profil yayında · şimdilik ücretsiz'
+                : `${plans[cafe.plan].name} üyelik · ${cafe.activationCode ? `Ücretsiz, ${renews} tarihine kadar` : `Deneme ${renews}’e kadar`}`}
             </div>
           </div>
         </motion.div>

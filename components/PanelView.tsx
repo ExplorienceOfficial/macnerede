@@ -23,6 +23,7 @@ import {
   watchSession,
 } from '@/lib/db';
 import { formatPhone, tl } from '@/lib/hooks';
+import { CONTACT_EMAIL, PAYMENTS_ENABLED } from '@/lib/site';
 import { hasWhatsApp } from '@/lib/venues';
 import { toCover, toPhoto } from '@/lib/images';
 import { team } from '@/lib/teams';
@@ -147,7 +148,7 @@ export default function PanelView({ matches, weekText }: { matches: MatchInfo[];
         </div>
 
         <div>
-          <Membership cafe={cafe} onCafe={setCafe} />
+          {PAYMENTS_ENABLED ? <Membership cafe={cafe} onCafe={setCafe} /> : <FreeListing cafe={cafe} />}
           <section className="card panel-card">
             <h2>Taraftarlar sana nasıl ulaşır?</h2>
             <p>
@@ -241,6 +242,22 @@ function PhotoManager({ cafe, onCafe }: { cafe: Cafe; onCafe: (c: Cafe) => void 
   );
 }
 
+/** Ödeme kapalıyken: üyelik yerine "profilin yayında, şimdilik ücretsiz" */
+function FreeListing({ cafe }: { cafe: Cafe }) {
+  const off = cafe.membership.status === 'canceled' || cafe.membership.status === 'past_due';
+  return (
+    <section className="card panel-card">
+      <h2>{off ? 'Profilin şu an yayında değil' : 'Profilin yayında'}</h2>
+      <p className="muted" style={{ fontSize: 14 }}>
+        {off ? 'Tekrar yayına almak için bize yaz.' : 'Şimdilik ücret yok. Taraftarlar seni maç sayfalarında görür, yer sormak için doğrudan sana yazar.'}
+      </p>
+      <a className="btn btn-ghost btn-sm" href={`mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(`Mekan: ${cafe.name}`)}`}>
+        Bize yaz
+      </a>
+    </section>
+  );
+}
+
 function Membership({ cafe, onCafe }: { cafe: Cafe; onCafe: (c: Cafe) => void }) {
   const [paying, setPaying] = useState(false);
   const m = cafe.membership;
@@ -293,7 +310,7 @@ function Membership({ cafe, onCafe }: { cafe: Cafe; onCafe: (c: Cafe) => void })
         <button className="btn btn-primary btn-sm" onClick={() => setPaying(true)}>
           <CreditCard size={15} /> {m.status === 'active' ? 'Üyeliği uzat' : 'Üyeliği öde'}
         </button>
-        <a className="btn btn-ghost btn-sm" href={`mailto:merhaba@macnerede.com?subject=${encodeURIComponent(`Üyelik: ${cafe.name}`)}`}>
+        <a className="btn btn-ghost btn-sm" href={`mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(`Üyelik: ${cafe.name}`)}`}>
           Fatura / soru
         </a>
       </div>

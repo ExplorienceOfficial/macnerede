@@ -1,3 +1,4 @@
+import { CONTACT_EMAIL, PAYMENTS_ENABLED } from '@/lib/site';
 import { NextResponse } from 'next/server';
 import { FieldValue } from 'firebase-admin/firestore';
 import { admin, adminConfigured } from '@/lib/server/firebaseAdmin';
@@ -8,6 +9,8 @@ export const runtime = 'nodejs';
 
 /** Mekan üyelik ödemesini başlatır: iyzico ödeme sayfasının adresini döner */
 export async function POST(req: Request) {
+  // Ödeme şimdilik kapalı (lib/site.ts → PAYMENTS_ENABLED)
+  if (!PAYMENTS_ENABLED) return NextResponse.json({ error: 'Ödeme şu an kapalı.' }, { status: 404 });
   if (!iyzicoConfigured() || !adminConfigured()) {
     return NextResponse.json({ error: 'Ödeme altyapısı henüz bağlı değil. Üyelik için bizimle iletişime geç.' }, { status: 503 });
   }
@@ -51,7 +54,7 @@ export async function POST(req: Request) {
         id: uid,
         name: first || 'Mekan',
         surname: rest.join(' ') || 'İşletmesi',
-        email: user.email ?? 'iletisim@macnerede.com',
+        email: user.email ?? CONTACT_EMAIL,
         phone: cafe.phone,
         address: cafe.address || cafe.city,
         city: cafe.city,

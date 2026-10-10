@@ -127,12 +127,11 @@ export default function VenueCard({ v, index, active, onSeat, onFocus, featured 
   );
 }
 
-/** "Bu işletmenin sahibi misiniz?": doğrudan NeredeMaç WhatsApp hattına (numara yoksa başvuru formuna) */
+/** "Bu işletmenin sahibi misiniz?": merhaba@neredemac.com'a hazır konulu e-posta */
 export function ClaimLink({ v }: { v: Pick<Venue, 'id' | 'name' | 'city' | 'district'> }) {
   const href = claimLink(v.id, `${v.name} (${districtName(v.city, v.district)})`);
-  const external = href.startsWith('http');
   return (
-    <a className="claim-link" href={href} {...(external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}>
+    <a className="claim-link" href={href}>
       Bu işletmenin sahibi misiniz? Bilgilerinizi birlikte güncelleyelim →
     </a>
   );

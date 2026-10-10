@@ -44,6 +44,7 @@ import { addDays, allMatches, matchPath, slugify, ymdIstanbul, type MatchInfo } 
 import { formatPhone, tl, waLink } from '@/lib/hooks';
 import { FRESH_MONTHS, MAX_MONTHS, MIN_RECENT, bundledVenues, evidenceMonth, isTrusted, trustStatus } from '@/lib/venues';
 import { downloadXlsx, type Cell } from '@/lib/xlsx';
+import { PAYMENTS_ENABLED } from '@/lib/site';
 
 type Tab = 'hafta' | 'analitik' | 'mekanlar' | 'basvurular' | 'rehber' | 'yeni' | 'odemeler' | 'kodlar';
 const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
@@ -53,7 +54,7 @@ const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
   { id: 'basvurular', label: 'Başvurular', icon: <Inbox size={15} /> },
   { id: 'rehber', label: 'Rehber', icon: <BookOpen size={15} /> },
   { id: 'yeni', label: 'Yeni mekan', icon: <UserPlus size={15} /> },
-  { id: 'odemeler', label: 'Ödemeler', icon: <CreditCard size={15} /> },
+  ...(PAYMENTS_ENABLED ? [{ id: 'odemeler' as Tab, label: 'Ödemeler', icon: <CreditCard size={15} /> }] : []),
   { id: 'kodlar', label: 'Kodlar', icon: <KeyRound size={15} /> },
 ];
 

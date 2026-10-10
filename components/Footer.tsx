@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { LogoMark } from './art';
+import { CONTACT_EMAIL } from '@/lib/site';
 
 export default function Footer() {
   return (
@@ -21,8 +22,7 @@ export default function Footer() {
         <div className="footer-links">
           <Link href="/kayit">Mekanını ekle</Link>
           <Link href="/giris">Mekan girişi</Link>
-          <a href="mailto:merhaba@macnerede.com">İletişim</a>
-          <Link href="/yonetim">Yönetim</Link>
+          <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>
         </div>
       </div>
     </footer>

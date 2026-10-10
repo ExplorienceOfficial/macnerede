@@ -25,6 +25,7 @@ import { GoogleAuthProvider, createUserWithEmailAndPassword, onAuthStateChanged,
 import { creatorAuth, firebase, firebaseEnabled } from './firebase';
 import { demoBroadcasts, demoCafes } from './demo-seed';
 import { bundledVenues, isTrusted } from './venues';
+import { PAYMENTS_ENABLED } from './site';
 import { ymdIstanbul } from './fixtures';
 import { CODE_PATTERN, MAX_PHOTOS, PERIODS, TRIAL_DAYS, periodPrice, type ActivationCode, type Broadcast, type Cafe, type CafePhoto, type Lead, type Payment, type PeriodId, type PlanId, type Venue } from './types';
 
@@ -40,7 +41,9 @@ export type NewCafe = Omit<Cafe, 'id' | 'membership' | 'createdAt'>;
 
 /** Denemesi bitmiş mekanlar listeden kendiliğinden düşer (ödeme gelince status 'active' olur) */
 const isListed = (c: Cafe, now = Date.now()) =>
-  c.membership.status === 'active' || (c.membership.status === 'trial' && new Date(c.membership.renewsAt).getTime() > now);
+  c.membership.status === 'active' ||
+  // Ödeme kapalıyken deneme süresi dolsa da mekan listede kalır (sadece yöneticinin askıya aldığı düşer)
+  (c.membership.status === 'trial' && (!PAYMENTS_ENABLED || new Date(c.membership.renewsAt).getTime() > now));
 
 // Firestore'da tarihler Timestamp olarak durur (kurallar deneme süresini doğrulayabilsin diye); uygulama içinde ISO string
 const iso = (v: unknown) => (v instanceof Timestamp ? v.toDate().toISOString() : String(v ?? ''));

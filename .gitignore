@@ -2,7 +2,10 @@ node_modules
 .next
 next-env.d.ts
 *.tsbuildinfo
-.env.local
+# Ortam değişkenleri depoya girmez (canlıda Vercel → Environment Variables)
+.env
+.env.*
+!.env.local.example
 kodlar.txt
 .next-demo
 *-debug.log
